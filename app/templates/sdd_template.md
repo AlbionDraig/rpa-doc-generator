@@ -35,8 +35,5 @@
 {tree}
 ```
 
-## 11. Observaciones de Calidad
-{quality_observations}
-
 ---
 Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.

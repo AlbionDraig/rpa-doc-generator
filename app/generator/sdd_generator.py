@@ -27,7 +27,6 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
             credentials_section=_generate_credentials_section(project_data),
             systems_section=_generate_systems_section(project_data),
             packages_section=_generate_packages_section(project_data),
-            quality_observations=_generate_quality_observations(project_data),
             tree=tree,
         )
 
@@ -306,7 +305,6 @@ def _generate_toc(project_data):
         "8. [Sistemas Externos y Configuracion Tecnica](#8-sistemas-externos-y-configuracion-tecnica)",
         "9. [Paquetes AA360 Detectados](#9-paquetes-aa360-detectados)",
         "10. [Estructura del Proyecto](#10-estructura-del-proyecto)",
-        "11. [Observaciones de Calidad](#11-observaciones-de-calidad)",
     ])
     return "\n".join(lines)
 
@@ -364,7 +362,9 @@ def _generate_dependency_contracts(tasks):
 
 
 def _generate_quality_observations(project_data):
+    """Genera observaciones de calidad como documento independiente."""
     tasks = project_data.get("tasks", [])
+    project_name = project_data.get("name", "Proyecto")
     observations = []
 
     # Nodos deshabilitados
@@ -430,9 +430,38 @@ def _generate_quality_observations(project_data):
         )
 
     if not observations:
-        return "No se detectaron observaciones relevantes. El bot cumple las buenas practicas basicas."
+        body = "No se detectaron observaciones relevantes. El bot cumple las buenas practicas basicas."
+    else:
+        body = "\n".join(f"- {obs}" for obs in observations)
 
-    return "\n".join(f"- {obs}" for obs in observations)
+    return (
+        f"# Observaciones de Calidad - {project_name}\n\n"
+        f"Fecha de analisis: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"## Resumen\n\n"
+        f"- **Taskbots analizados:** {len(tasks)}\n"
+        f"- **Observaciones detectadas:** {len(observations)}\n\n"
+        f"## Hallazgos\n\n"
+        f"{body}\n\n"
+        f"---\n"
+        f"Documento generado automaticamente por RPA-Doc-Generator.\n"
+    )
+
+
+def generate_quality_file(project_data, output_path):
+    """Genera el reporte de calidad y lo guarda en un archivo."""
+    try:
+        content = _generate_quality_observations(project_data)
+        output_file = Path(output_path)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(output_file, "w", encoding="utf-8") as file_obj:
+            file_obj.write(content)
+
+        logger.info("Reporte de calidad guardado en: %s", output_file)
+        return str(output_file)
+    except Exception as exc:
+        logger.error("Error guardando reporte de calidad: %s", exc)
+        raise
 
 
 def _describe_error_handling(error_handling):
@@ -507,9 +536,6 @@ def _generate_default_template():
 ```
 {tree}
 ```
-
-## 11. Observaciones de Calidad
-{quality_observations}
 
 ---
 Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.

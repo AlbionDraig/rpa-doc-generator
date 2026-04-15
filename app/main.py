@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from app.analysis.flow_builder import build_flow
 from app.analysis.tree_builder import build_tree
 from app.generator.diagram_generator import generate_flow_svg
-from app.generator.sdd_generator import generate_sdd, generate_sdd_file
+from app.generator.sdd_generator import generate_sdd, generate_sdd_file, generate_quality_file
 from app.ingestion.extractor import extract_project
 from app.ingestion.uploader import save_file
 from app.parser.project_parser import parse_project
@@ -151,6 +151,49 @@ async def generate(file: UploadFile):
         raise HTTPException(status_code=500, detail=f"Error interno: {exc}") from exc
 
 
+@app.post("/quality/")
+async def quality(file: UploadFile):
+    """
+    Genera un reporte de observaciones de calidad para un bot de Automation Anywhere.
+    """
+    session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    output_dir = Path("./output") / session_id
+
+    try:
+        logger.info("[QUALITY-START] Procesando archivo: %s - Sesion: %s", file.filename, session_id)
+
+        zip_path = save_file(file)
+        project_path = extract_project(zip_path)
+        project_data = parse_project(project_path)
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        quality_file = output_dir / f"Calidad_{project_data['name']}.md"
+        generate_quality_file(project_data, str(quality_file))
+
+        logger.info("[QUALITY-COMPLETE] Reporte generado - Sesion: %s", session_id)
+
+        return {
+            "status": "success",
+            "session_id": session_id,
+            "proyecto": project_data["name"],
+            "archivos_salida": {
+                "calidad_path": str(quality_file),
+            },
+            "output_directory": str(output_dir),
+        }
+
+    except ValueError as exc:
+        logger.error("[ERROR] Validacion: %s - Sesion: %s", exc, session_id)
+        raise HTTPException(status_code=400, detail=f"Error de validacion: {exc}") from exc
+    except FileNotFoundError as exc:
+        logger.error("[ERROR] Archivo no encontrado: %s - Sesion: %s", exc, session_id)
+        raise HTTPException(status_code=404, detail=f"No encontrado: {exc}") from exc
+    except Exception as exc:
+        logger.error("[ERROR] Inesperado: %s - Sesion: %s", exc, session_id, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error interno: {exc}") from exc
+
+
 @app.get("/download/{session_id}/{file_type}")
 async def download_file(session_id: str, file_type: str):
     """
@@ -160,6 +203,7 @@ async def download_file(session_id: str, file_type: str):
 
     file_map = {
         "sdd": lambda: list(output_dir.glob("SDD_*.md"))[0] if list(output_dir.glob("SDD_*.md")) else None,
+        "calidad": lambda: list(output_dir.glob("Calidad_*.md"))[0] if list(output_dir.glob("Calidad_*.md")) else None,
         "flujo_svg": lambda: output_dir / "flujo_taskbots.svg",
         "estructura": lambda: output_dir / "estructura.txt",
         "resumen": lambda: output_dir / "resumen.json",
