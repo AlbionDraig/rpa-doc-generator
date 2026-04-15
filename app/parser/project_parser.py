@@ -79,6 +79,7 @@ def parse_project(path):
     manifest_summary = _build_manifest_summary(manifest)
     project_packages = _collect_project_packages(manifest_summary, tasks)
     external_systems = _collect_project_systems(tasks)
+    project_credentials = _collect_project_credentials(tasks)
 
     result = {
         "name": project_root.name,
@@ -93,6 +94,7 @@ def parse_project(path):
         "files": _build_file_summary(project_root, manifest, tasks),
         "packages": project_packages,
         "systems": external_systems,
+        "credentials": project_credentials,
     }
 
     logger.info(
@@ -225,6 +227,7 @@ def _parse_taskbot(task_path, project_root, data, manifest_entry):
         "node_stats": node_analysis["stats"],
         "error_handling": node_analysis["error_handling"],
         "systems": node_analysis["systems"],
+        "credentials": node_analysis["credentials"],
         "comments": node_analysis["comments"],
     }
 
@@ -298,6 +301,7 @@ def _analyze_nodes(nodes):
         "actions": [],
         "task_calls": [],
         "systems": [],
+        "credentials": [],
         "comments": [],
         "stats": {
             "total_nodes": 0,
@@ -370,6 +374,10 @@ def _visit_node(node, analysis, seen_systems, depth):
         if signature not in seen_systems:
             seen_systems.add(signature)
             analysis["systems"].append(system)
+
+    credential = _extract_credential_from_node(node)
+    if credential:
+        analysis["credentials"].append(credential)
 
     for child in node.get("children", []):
         _visit_node(child, analysis, seen_systems, depth + 1)
@@ -620,6 +628,21 @@ def _collect_project_systems(tasks):
     return sorted(systems, key=lambda item: (item["type"], item["value"]))
 
 
+def _collect_project_credentials(tasks):
+    credentials = []
+    seen = set()
+
+    for task in tasks:
+        for credential in task.get("credentials", []):
+            signature = (credential["credential_name"], credential.get("attribute", ""))
+            if signature in seen:
+                continue
+            seen.add(signature)
+            credentials.append(credential)
+
+    return sorted(credentials, key=lambda item: (item.get("vault", ""), item["credential_name"]))
+
+
 def _select_project_description(tasks):
     for task in tasks:
         description = task.get("description")
@@ -739,6 +762,43 @@ def _sanitize_jdbc_url(text):
 
 def _sanitize_local_path(path_text):
     return WINDOWS_USER_PATH_PATTERN.sub(r"\1<user>", path_text)
+
+
+def _extract_credential_from_node(node):
+    """Extrae informacion de credenciales de un nodo CredentialVault."""
+    command = str(node.get("commandName", "")).lower()
+    package = str(node.get("packageName", "")).lower()
+
+    if "credential" not in package:
+        return None
+
+    credential_name = ""
+    attribute_name = ""
+    vault_name = ""
+
+    for attr in node.get("attributes", []):
+        if not isinstance(attr, dict):
+            continue
+        attr_name = str(attr.get("name", "")).lower()
+        attr_value = _extract_value_literal(attr.get("value"))
+        attr_str = str(attr_value).strip() if attr_value else ""
+
+        if attr_name in {"credentialname", "credential", "name"}:
+            credential_name = attr_str
+        elif attr_name in {"attributename", "attribute"}:
+            attribute_name = attr_str
+        elif attr_name in {"lockername", "locker", "vault", "vaultname"}:
+            vault_name = attr_str
+
+    if not credential_name:
+        return None
+
+    return {
+        "credential_name": credential_name,
+        "attribute": attribute_name,
+        "vault": vault_name,
+        "source": f"{package}::{command}",
+    }
 
 
 def _extract_systems_from_node(node):

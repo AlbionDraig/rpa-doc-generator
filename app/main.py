@@ -112,6 +112,7 @@ async def generate(file: UploadFile):
             "archivos_json": project_data["files"]["json_count"],
             "paquetes_detectados": len(project_data.get("packages", [])),
             "sistemas_detectados": len(project_data.get("systems", [])),
+            "credenciales_detectadas": len(project_data.get("credentials", [])),
             "nodos_flujo": flow["summary"]["total_nodes"],
             "conexiones": flow["summary"]["total_edges"],
             "fecha_generacion": datetime.now().isoformat(),

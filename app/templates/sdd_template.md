@@ -15,13 +15,16 @@
 ## 5. Contrato de Variables
 {variables_section}
 
-## 6. Sistemas Externos y Configuracion Tecnica
+## 6. Credenciales y Vaults
+{credentials_section}
+
+## 7. Sistemas Externos y Configuracion Tecnica
 {systems_section}
 
-## 7. Paquetes AA360 Detectados
+## 8. Paquetes AA360 Detectados
 {packages_section}
 
-## 8. Estructura del Proyecto
+## 9. Estructura del Proyecto
 ```
 {tree}
 ```

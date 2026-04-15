@@ -22,6 +22,7 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
             flow_visual=flow_visual or _generate_flow_visual_placeholder(),
             task_inventory=_generate_task_inventory(tasks),
             variables_section=_generate_variables_section(tasks),
+            credentials_section=_generate_credentials_section(project_data),
             systems_section=_generate_systems_section(project_data),
             packages_section=_generate_packages_section(project_data),
             tree=tree,
@@ -238,6 +239,22 @@ def _generate_variables_section(tasks):
     return "\n".join(sections).rstrip()
 
 
+def _generate_credentials_section(project_data):
+    credentials = project_data.get("credentials", [])
+    if not credentials:
+        return "No se detectaron credenciales o vaults en los taskbots."
+
+    lines = ["| Credencial | Atributo | Vault | Origen |", "|------------|----------|-------|--------|"]  
+    for credential in credentials:
+        lines.append(
+            f"| {credential['credential_name']} "
+            f"| {credential.get('attribute', '-') or '-'} "
+            f"| {credential.get('vault', '-') or '-'} "
+            f"| `{credential.get('source', '-')}` |"
+        )
+    return "\n".join(lines)
+
+
 def _generate_systems_section(project_data):
     systems = project_data.get("systems", [])
     if not systems:
@@ -326,13 +343,16 @@ def _generate_default_template():
 ## 5. Contrato de Variables
 {variables_section}
 
-## 6. Sistemas Externos y Configuracion Tecnica
+## 6. Credenciales y Vaults
+{credentials_section}
+
+## 7. Sistemas Externos y Configuracion Tecnica
 {systems_section}
 
-## 7. Paquetes AA360 Detectados
+## 8. Paquetes AA360 Detectados
 {packages_section}
 
-## 8. Estructura del Proyecto
+## 9. Estructura del Proyecto
 ```
 {tree}
 ```
