@@ -24,39 +24,40 @@ CSS_STYLE = """
 body {
     font-family: Helvetica, Arial, sans-serif;
     font-size: 10pt;
-    line-height: 1.5;
-    color: #1a1a2e;
+    line-height: 1.6;
+    color: #1e293b;
 }
 h1 {
-    color: #0f3460;
-    font-size: 20pt;
-    border-bottom: 3px solid #e94560;
-    padding-bottom: 8px;
-    margin-top: 28px;
-    margin-bottom: 14px;
+    color: #1e293b;
+    font-size: 18pt;
+    border-bottom: 2px solid #4f46e5;
+    padding-bottom: 6px;
+    margin-top: 30px;
+    margin-bottom: 12px;
+    letter-spacing: 0.3px;
 }
 h1:first-of-type {
     text-align: center;
-    font-size: 26pt;
-    border-bottom: 4px solid #e94560;
-    padding-bottom: 12px;
-    margin-top: 40px;
+    font-size: 24pt;
+    border-bottom: 3px solid #4f46e5;
+    padding-bottom: 10px;
+    margin-top: 36px;
     margin-bottom: 6px;
 }
 h2 {
-    color: #16213e;
-    font-size: 15pt;
-    border-bottom: 2px solid #0f3460;
-    padding-bottom: 5px;
+    color: #334155;
+    font-size: 14pt;
+    border-bottom: 1px solid #cbd5e1;
+    padding-bottom: 4px;
     margin-top: 22px;
     margin-bottom: 10px;
 }
 h3 {
-    color: #0f3460;
-    font-size: 12pt;
+    color: #334155;
+    font-size: 11.5pt;
     margin-top: 16px;
     margin-bottom: 8px;
-    border-left: 4px solid #e94560;
+    border-left: 3px solid #4f46e5;
     padding-left: 10px;
 }
 p {
@@ -69,23 +70,25 @@ li {
     margin-bottom: 3px;
 }
 strong {
-    color: #16213e;
+    color: #1e293b;
 }
 code {
     font-family: Courier, monospace;
     font-size: 8.5pt;
-    background-color: #f0f0f5;
+    background-color: #f1f5f9;
     padding: 1px 4px;
     border-radius: 3px;
+    color: #4f46e5;
 }
 pre {
-    background-color: #f4f4f8;
-    border: 1px solid #d0d0d8;
-    border-radius: 5px;
-    padding: 12px;
+    background-color: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-left: 3px solid #4f46e5;
+    border-radius: 4px;
+    padding: 12px 14px;
     font-family: Courier, monospace;
     font-size: 7.5pt;
-    line-height: 1.3;
+    line-height: 1.4;
     overflow: hidden;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -97,52 +100,53 @@ table {
     font-size: 9pt;
 }
 thead tr {
-    background-color: #0f3460;
+    background-color: #1e293b;
     color: #ffffff;
 }
 th {
     padding: 7px 8px;
     text-align: left;
     font-weight: bold;
-    border: 1px solid #0a2640;
+    border: 1px solid #1e293b;
 }
 td {
     padding: 5px 8px;
-    border: 1px solid #c8c8d4;
+    border: 1px solid #e2e8f0;
     word-wrap: break-word;
 }
 tr:nth-child(even) {
-    background-color: #f2f4f8;
+    background-color: #f1f5f9;
 }
 tr:nth-child(odd) {
     background-color: #ffffff;
 }
 hr {
     border: none;
-    border-top: 2px solid #e94560;
-    margin: 20px 0;
+    border-top: 1px solid #e2e8f0;
+    margin: 22px 0;
 }
 blockquote {
-    border-left: 4px solid #e94560;
+    border-left: 3px solid #4f46e5;
     margin: 10px 0;
     padding: 8px 14px;
-    background-color: #fdf2f4;
+    background-color: #eef2ff;
     font-style: italic;
-    color: #444;
+    color: #334155;
 }
 em {
-    color: #555;
+    color: #64748b;
 }
 .cover-subtitle {
     text-align: center;
-    font-size: 11pt;
-    color: #555;
+    font-size: 10pt;
+    color: #64748b;
     margin-top: 4px;
-    margin-bottom: 30px;
+    margin-bottom: 28px;
+    letter-spacing: 0.5px;
 }
 .badge {
     display: inline-block;
-    background-color: #e94560;
+    background-color: #4f46e5;
     color: white;
     padding: 2px 8px;
     border-radius: 3px;
@@ -151,21 +155,48 @@ em {
 }
 .footer-text {
     font-size: 7.5pt;
-    color: #888;
+    color: #94a3b8;
     text-align: center;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid #e2e8f0;
     padding-top: 4px;
 }
 """
 
 
+_EMOJI_MAP = {
+    "📁": "[DIR]",
+    "📝": "",
+    "🤖": "",
+    "📊": "",
+    "📄": "",
+}
+
+
+def _sanitize_tree_for_pdf(text):
+    """Replace emoji characters that xhtml2pdf cannot render."""
+    for emoji, replacement in _EMOJI_MAP.items():
+        text = text.replace(emoji, replacement)
+    return text
+
+
+def _fix_pre_newlines(html):
+    """Replace newlines with <br/> inside <pre> blocks so xhtml2pdf renders them."""
+    def _replace_newlines(match):
+        content = match.group(1)
+        content = content.replace("\n", "<br/>")
+        return f"<pre><code>{content}</code></pre>"
+    return re.sub(r"<pre><code>(.*?)</code></pre>", _replace_newlines, html, flags=re.DOTALL)
+
+
 def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_image_path=None):
     """Genera un PDF estilizado a partir del contenido Markdown del SDD."""
     try:
+        md_content = _sanitize_tree_for_pdf(md_content)
         html_body = markdown.markdown(
             md_content,
             extensions=["tables", "fenced_code", "toc", "sane_lists"],
         )
+        html_body = _fix_pre_newlines(html_body)
 
         # Replace the relative SVG img tag with a base64-encoded PNG
         if flow_image_path and Path(flow_image_path).exists():
@@ -193,10 +224,10 @@ def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_imag
     <style>{CSS_STYLE}</style>
 </head>
 <body>
-    <p class="cover-subtitle">Documento de Diseno de Software — Generado automaticamente el {generated_date}</p>
+    <p class="cover-subtitle">Documento de Diseno de Software &mdash; Generado el {generated_date}</p>
     {html_body}
     <div id="page-footer">
-        <p class="footer-text">SDD — {_escape_html(project_name)} | RPA-Doc-Generator | Pagina <pdf:pagenumber/></p>
+        <p class="footer-text">SDD &mdash; {_escape_html(project_name)} &nbsp;|&nbsp; RPA-Doc-Generator &nbsp;|&nbsp; Pagina <pdf:pagenumber/></p>
     </div>
 </body>
 </html>"""
@@ -220,6 +251,7 @@ def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_imag
 def generate_quality_pdf(md_content, output_path, project_name="Proyecto"):
     """Genera un PDF estilizado a partir del contenido Markdown del reporte de calidad."""
     try:
+        md_content = _sanitize_tree_for_pdf(md_content)
         html_body = markdown.markdown(
             md_content,
             extensions=["tables", "fenced_code", "sane_lists"],
@@ -234,10 +266,10 @@ def generate_quality_pdf(md_content, output_path, project_name="Proyecto"):
     <style>{CSS_STYLE}</style>
 </head>
 <body>
-    <p class="cover-subtitle">Reporte de Calidad — Generado automaticamente el {generated_date}</p>
+    <p class="cover-subtitle">Reporte de Calidad &mdash; Generado el {generated_date}</p>
     {html_body}
     <div id="page-footer">
-        <p class="footer-text">Calidad — {_escape_html(project_name)} | RPA-Doc-Generator | Pagina <pdf:pagenumber/></p>
+        <p class="footer-text">Calidad &mdash; {_escape_html(project_name)} &nbsp;|&nbsp; RPA-Doc-Generator &nbsp;|&nbsp; Pagina <pdf:pagenumber/></p>
     </div>
 </body>
 </html>"""

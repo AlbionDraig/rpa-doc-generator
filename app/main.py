@@ -109,6 +109,10 @@ async def generate(file: UploadFile):
         sdd_pdf_file = output_dir / f"SDD_{project_data['name']}.pdf"
         generate_sdd_pdf(sdd, str(sdd_pdf_file), project_data["name"], str(flow_png_file))
 
+        # Remove intermediate PNG (already embedded in Word and PDF)
+        if flow_png_file.exists():
+            flow_png_file.unlink()
+
         logger.info("[COMPLETE] Procesamiento finalizado - Sesion: %s", session_id)
 
         return {

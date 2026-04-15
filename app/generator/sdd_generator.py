@@ -15,7 +15,6 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
 
         rendered = template.format(
             name=project_data.get("name", "Proyecto sin nombre"),
-            description=metadata.get("description", "Documentacion auto-generada del bot RPA"),
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             toc=_generate_toc(project_data),
             overview=_generate_overview(project_data, flow),

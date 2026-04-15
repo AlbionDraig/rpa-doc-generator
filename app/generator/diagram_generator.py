@@ -45,9 +45,11 @@ def generate_flow_svg(flow):
         [
             f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}" role="img" aria-label="Flujo principal entre taskbots">',
             defs,
-            f'<rect width="{width}" height="{height}" rx="24" fill="#f8fafc" />',
-            '<text x="36" y="34" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700" fill="#0f172a">Flujo principal entre taskbots</text>',
-            '<text x="36" y="56" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#475569">Las flechas muestran la direccion de la invocacion o dependencia entre bots.</text>',
+            f'<rect width="{width}" height="{height}" rx="16" fill="#f8fafc" />',
+            f'<rect x="0" y="0" width="{width}" height="64" rx="16" fill="#1e293b" />',
+            f'<rect x="0" y="16" width="{width}" height="48" fill="#1e293b" />',
+            '<text x="36" y="32" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#f8fafc" letter-spacing="0.5">Flujo principal entre taskbots</text>',
+            '<text x="36" y="50" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#94a3b8">Las flechas muestran la direccion de la invocacion o dependencia entre bots.</text>',
             *start_elements,
             *edge_elements,
             *node_elements,
@@ -127,7 +129,7 @@ def _build_svg_edges(edges, positions):
             f"C {x1 + curve_offset} {y1}, {x2 - curve_offset} {y2}, {x2} {y2}"
         )
         elements.append(
-            f'<path d="{path}" fill="none" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow)" />'
+            f'<path d="{path}" fill="none" stroke="#475569" stroke-width="2" stroke-dasharray="6,3" marker-end="url(#arrow)" />'
         )
 
         label = _build_edge_label(edge)
@@ -139,10 +141,10 @@ def _build_svg_edges(edges, positions):
             rect_x = label_x - text_width / 2
             rect_y = label_y - 14
             elements.append(
-                f'<rect x="{rect_x:.1f}" y="{rect_y:.1f}" width="{text_width:.1f}" height="24" rx="12" fill="#dbeafe" stroke="#93c5fd" />'
+                f'<rect x="{rect_x:.1f}" y="{rect_y:.1f}" width="{text_width:.1f}" height="24" rx="12" fill="#e0e7ff" stroke="#a5b4fc" />'
             )
             elements.append(
-                f'<text x="{label_x:.1f}" y="{label_y + 2:.1f}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#1d4ed8">{safe_label}</text>'
+                f'<text x="{label_x:.1f}" y="{label_y + 2:.1f}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600" fill="#3730a3">{safe_label}</text>'
             )
     return elements
 
@@ -153,36 +155,38 @@ def _build_svg_nodes(nodes, positions):
         position = positions[node["id"]]
         x = position["x"]
         y = position["y"]
-        accent = "#f97316" if node.get("is_entrypoint") else "#2563eb"
-        fill = "#fff7ed" if node.get("is_entrypoint") else "#ffffff"
+        is_entry = node.get("is_entrypoint")
+        accent = "#059669" if is_entry else "#4f46e5"
+        fill = "#f0fdf4" if is_entry else "#eef2ff"
+        stroke = "#059669" if is_entry else "#4f46e5"
         role = str(node.get("role", "taskbot")).upper()
         detail = f"Nodos AA360: {node.get('node_count', 0)}"
 
         elements.append(
-            f'<rect x="{x}" y="{y}" width="{BOX_WIDTH}" height="{BOX_HEIGHT}" rx="18" fill="{fill}" stroke="{accent}" stroke-width="3" />'
+            f'<rect x="{x}" y="{y}" width="{BOX_WIDTH}" height="{BOX_HEIGHT}" rx="12" fill="{fill}" stroke="{stroke}" stroke-width="2" />'
         )
-        badge_fill = _blend_color(accent, 0.12, fill)
+        badge_fill = _blend_color(accent, 0.15, fill)
         elements.append(
-            f'<rect x="{x + 16}" y="{y + 14}" width="86" height="24" rx="12" fill="{badge_fill}" />'
+            f'<rect x="{x + 14}" y="{y + 12}" width="90" height="22" rx="11" fill="{badge_fill}" />'
         )
         elements.append(
-            f'<text x="{x + 59}" y="{y + 30}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" fill="{accent}">{html.escape(role)}</text>'
+            f'<text x="{x + 59}" y="{y + 27}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" fill="{accent}">{html.escape(role)}</text>'
         )
 
         title_lines = _wrap_text(node["name"], 24, 2)
-        title_y = y + 54
+        title_y = y + 52
         for offset, line in enumerate(title_lines):
             elements.append(
-                f'<text x="{x + 18}" y="{title_y + offset * 18}" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="700" fill="#0f172a">{html.escape(line)}</text>'
+                f'<text x="{x + 18}" y="{title_y + offset * 18}" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700" fill="#1e293b">{html.escape(line)}</text>'
             )
 
         detail_y = y + 88
         elements.append(
-            f'<text x="{x + 18}" y="{detail_y}" font-family="Segoe UI, Arial, sans-serif" font-size="12" fill="#475569">{html.escape(detail)}</text>'
+            f'<text x="{x + 18}" y="{detail_y}" font-family="Segoe UI, Arial, sans-serif" font-size="11" fill="#64748b">{html.escape(detail)}</text>'
         )
-        if node.get("is_entrypoint"):
+        if is_entry:
             elements.append(
-                f'<text x="{x + BOX_WIDTH - 18}" y="{detail_y}" text-anchor="end" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600" fill="#9a3412">Inicio</text>'
+                f'<text x="{x + BOX_WIDTH - 18}" y="{detail_y}" text-anchor="end" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="600" fill="#065f46">Inicio</text>'
             )
 
     return elements
@@ -195,16 +199,15 @@ def _build_svg_starts(nodes, positions):
         position = positions[node["id"]]
         cx = position["x"] - 70
         cy = position["y"] + BOX_HEIGHT / 2
-        circle_fill = _blend_color("#0f172a", 0.9, "#f8fafc")
         elements.append(
-            f'<circle cx="{cx}" cy="{cy}" r="{START_RADIUS}" fill="{circle_fill}" />'
+            f'<circle cx="{cx}" cy="{cy}" r="{START_RADIUS}" fill="#1e293b" />'
         )
         elements.append(
-            f'<text x="{cx}" y="{cy + 4}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" fill="#ffffff">IN</text>'
+            f'<text x="{cx}" y="{cy + 4}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="10" font-weight="700" fill="#f8fafc">IN</text>'
         )
         path = f"M {cx + START_RADIUS} {cy} L {position['x']} {cy}"
         elements.append(
-            f'<path d="{path}" fill="none" stroke="#0f172a" stroke-width="2.5" marker-end="url(#arrowDark)" />'
+            f'<path d="{path}" fill="none" stroke="#1e293b" stroke-width="2" marker-end="url(#arrowDark)" />'
         )
     return elements
 
@@ -212,11 +215,11 @@ def _build_svg_starts(nodes, positions):
 def _svg_defs():
     return """
 <defs>
-  <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
-    <path d="M0,0 L14,7 L0,14 z" fill="#2563eb" />
+  <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+    <path d="M0,0 L12,6 L0,12 z" fill="#475569" />
   </marker>
-  <marker id="arrowDark" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto" markerUnits="strokeWidth">
-    <path d="M0,0 L14,7 L0,14 z" fill="#0f172a" />
+  <marker id="arrowDark" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+    <path d="M0,0 L12,6 L0,12 z" fill="#1e293b" />
   </marker>
 </defs>
 """.strip()
@@ -264,9 +267,11 @@ def _empty_svg(message):
     return "\n".join(
         [
             '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="180" viewBox="0 0 720 180" role="img" aria-label="Flujo principal entre taskbots">',
-            '<rect width="720" height="180" rx="24" fill="#f8fafc" />',
-            '<text x="40" y="60" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#0f172a">Flujo principal entre taskbots</text>',
-            f'<text x="40" y="110" font-family="Segoe UI, Arial, sans-serif" font-size="16" fill="#475569">{safe_message}</text>',
+            '<rect width="720" height="180" rx="16" fill="#f8fafc" />',
+            '<rect x="0" y="0" width="720" height="56" rx="16" fill="#1e293b" />',
+            '<rect x="0" y="16" width="720" height="40" fill="#1e293b" />',
+            '<text x="36" y="34" font-family="Segoe UI, Arial, sans-serif" font-size="18" font-weight="700" fill="#f8fafc">Flujo principal entre taskbots</text>',
+            f'<text x="36" y="100" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#64748b">{safe_message}</text>',
             "</svg>",
         ]
     )

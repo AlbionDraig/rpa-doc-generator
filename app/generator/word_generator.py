@@ -11,13 +11,15 @@ from docx.oxml import parse_xml
 
 logger = logging.getLogger(__name__)
 
-# Brand colors
-COLOR_PRIMARY = RGBColor(0x0F, 0x34, 0x60)      # Deep navy
-COLOR_ACCENT = RGBColor(0xE9, 0x45, 0x60)        # Coral red
-COLOR_DARK = RGBColor(0x16, 0x21, 0x3E)          # Dark navy
-COLOR_TABLE_HEADER = "0F3460"                      # Navy hex for XML
-COLOR_TABLE_ALT = "F2F4F8"                         # Alternating row hex
-COLOR_TEXT = RGBColor(0x1A, 0x1A, 0x2E)
+# Brand colors — Slate / Indigo / Emerald
+COLOR_PRIMARY = RGBColor(0x1E, 0x29, 0x3B)      # Slate 800
+COLOR_SECONDARY = RGBColor(0x33, 0x41, 0x55)     # Slate 700
+COLOR_ACCENT = RGBColor(0x4F, 0x46, 0xE5)        # Indigo 600
+COLOR_DARK = RGBColor(0x0F, 0x17, 0x2A)          # Slate 900
+COLOR_TABLE_HEADER = "1E293B"                      # Slate 800 hex for XML
+COLOR_TABLE_ALT = "F1F5F9"                         # Slate 100 hex
+COLOR_TEXT = RGBColor(0x1E, 0x29, 0x3B)           # Slate 800
+COLOR_MUTED = RGBColor(0x64, 0x74, 0x8B)         # Slate 500
 
 
 def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_path=None):
@@ -34,14 +36,9 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
         _add_cover_page(doc, name, metadata)
         doc.add_page_break()
 
-        # TOC placeholder
+        # Table of contents
         _add_styled_heading(doc, "Tabla de Contenido", level=1)
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        run = p.add_run("Actualizar tabla de contenido en Word: Referencias > Tabla de contenido")
-        run.italic = True
-        run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
-        run.font.size = Pt(9)
+        _add_toc_field(doc)
         doc.add_page_break()
 
         # 1. Informacion General
@@ -65,7 +62,7 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
                 "Flujo principal entre taskbots: entrypoints, direccion de invocacion y contrato resumido."
             )
             run.font.size = Pt(8)
-            run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+            run.font.color.rgb = COLOR_MUTED
             run.italic = True
         else:
             doc.add_paragraph("No se genero una imagen del flujo para esta ejecucion.")
@@ -106,11 +103,18 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
             f"Documento generado automaticamente por RPA-Doc-Generator el {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}."
         )
         run.font.size = Pt(8)
-        run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+        run.font.color.rgb = RGBColor(0x94, 0xA3, 0xB8)
         run.italic = True
 
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Force Word to update all fields (TOC) when the document is opened
+        update_fields = parse_xml(
+            '<w:updateFields %s w:val="true"/>' % nsdecls("w")
+        )
+        doc.settings.element.insert(0, update_fields)
+
         doc.save(str(output_file))
 
         logger.info("SDD Word guardado en: %s", output_file)
@@ -150,7 +154,7 @@ def generate_quality_word(project_data, output_path):
         else:
             p = doc.add_paragraph()
             run = p.add_run("No se detectaron observaciones relevantes. El bot cumple las buenas practicas basicas.")
-            run.font.color.rgb = RGBColor(0x22, 0x8B, 0x22)
+            run.font.color.rgb = RGBColor(0x05, 0x96, 0x69)  # Emerald 600
 
         # Footer
         _add_divider(doc)
@@ -158,7 +162,7 @@ def generate_quality_word(project_data, output_path):
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run("Documento generado automaticamente por RPA-Doc-Generator.")
         run.font.size = Pt(8)
-        run.font.color.rgb = RGBColor(0x88, 0x88, 0x88)
+        run.font.color.rgb = RGBColor(0x94, 0xA3, 0xB8)
         run.italic = True
 
         output_file = Path(output_path)
@@ -184,61 +188,78 @@ def _setup_document(doc):
     style.font.color.rgb = COLOR_TEXT
     style.paragraph_format.space_after = Pt(4)
     style.paragraph_format.space_before = Pt(2)
+    style.paragraph_format.line_spacing = 1.15
 
     for section in doc.sections:
         section.top_margin = Cm(2)
         section.bottom_margin = Cm(2)
-        section.left_margin = Cm(2.2)
-        section.right_margin = Cm(2.2)
+        section.left_margin = Cm(2.4)
+        section.right_margin = Cm(2.4)
 
 
 def _add_cover_page(doc, project_name, metadata, doc_type="SDD"):
     """Create a styled cover page."""
-    for _ in range(4):
+    for _ in range(3):
         doc.add_paragraph("")
+
+    # Accent bar
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("\u2500" * 40)
+    run.font.color.rgb = COLOR_ACCENT
+    run.font.size = Pt(8)
+
+    doc.add_paragraph("")
 
     # Title
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run("Documento de Diseno de Software" if doc_type == "SDD" else "Reporte de Calidad")
-    run.font.size = Pt(28)
+    run.font.size = Pt(26)
     run.font.color.rgb = COLOR_PRIMARY
     run.bold = True
+    run.font.name = "Calibri Light"
 
     # Project name
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(project_name)
-    run.font.size = Pt(22)
+    run.font.size = Pt(20)
     run.font.color.rgb = COLOR_ACCENT
     run.bold = True
 
-    # Divider
-    _add_divider(doc)
+    # Accent bar
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run("\u2500" * 40)
+    run.font.color.rgb = COLOR_ACCENT
+    run.font.size = Pt(8)
 
     # Description
     description = metadata.get("description", "")
     if description:
+        doc.add_paragraph("")
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         run = p.add_run(description)
-        run.font.size = Pt(12)
-        run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+        run.font.size = Pt(11)
+        run.font.color.rgb = COLOR_MUTED
         run.italic = True
 
+    doc.add_paragraph("")
     doc.add_paragraph("")
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run(f"Fecha de generacion: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    run.font.size = Pt(10)
-    run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+    run.font.size = Pt(9)
+    run.font.color.rgb = COLOR_MUTED
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run("Generado por RPA-Doc-Generator")
     run.font.size = Pt(9)
-    run.font.color.rgb = RGBColor(0x99, 0x99, 0x99)
+    run.font.color.rgb = RGBColor(0x94, 0xA3, 0xB8)
     run.italic = True
 
 
@@ -246,16 +267,44 @@ def _add_styled_heading(doc, text, level=1):
     """Add a heading with custom color styling."""
     heading = doc.add_heading(text, level=level)
     for run in heading.runs:
-        run.font.color.rgb = COLOR_PRIMARY if level <= 2 else COLOR_DARK
+        run.font.color.rgb = COLOR_PRIMARY if level == 1 else COLOR_SECONDARY
+        run.font.name = "Calibri Light" if level == 1 else "Calibri"
     return heading
+
+
+def _add_toc_field(doc):
+    """Insert a real Word TOC field that auto-populates on open."""
+    ns = nsdecls("w")
+    paragraph = doc.add_paragraph()
+
+    run = paragraph.add_run()
+    run._r.append(parse_xml('<w:fldChar %s w:fldCharType="begin"/>' % ns))
+
+    run = paragraph.add_run()
+    run._r.append(parse_xml(
+        '<w:instrText %s xml:space="preserve">'
+        r' TOC \o "1-3" \h \z \u '
+        '</w:instrText>' % ns
+    ))
+
+    run = paragraph.add_run()
+    run._r.append(parse_xml('<w:fldChar %s w:fldCharType="separate"/>' % ns))
+
+    run = paragraph.add_run("(La tabla de contenido se generara al abrir en Word)")
+    run.italic = True
+    run.font.color.rgb = COLOR_MUTED
+    run.font.size = Pt(9)
+
+    run = paragraph.add_run()
+    run._r.append(parse_xml('<w:fldChar %s w:fldCharType="end"/>' % ns))
 
 
 def _add_divider(doc):
     """Add a visual horizontal divider."""
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = p.add_run("\u2501" * 60)
-    run.font.color.rgb = COLOR_ACCENT
+    run = p.add_run("\u2500" * 50)
+    run.font.color.rgb = RGBColor(0xE2, 0xE8, 0xF0)
     run.font.size = Pt(6)
 
 
@@ -263,7 +312,7 @@ def _add_bullet(doc, label, value):
     p = doc.add_paragraph(style="List Bullet")
     run_label = p.add_run(f"{label}: ")
     run_label.bold = True
-    run_label.font.color.rgb = COLOR_DARK
+    run_label.font.color.rgb = COLOR_SECONDARY
     run_label.font.size = Pt(10)
     run_value = p.add_run(str(value))
     run_value.font.size = Pt(10)
@@ -341,7 +390,7 @@ def _add_observation_item(doc, text):
     run = p.add_run(text)
     run.font.size = Pt(10)
     if is_warning:
-        run.font.color.rgb = COLOR_ACCENT
+        run.font.color.rgb = RGBColor(0xDC, 0x26, 0x26)  # Red 600 for warnings
 
 
 def _add_tree_block(doc, tree):
@@ -350,7 +399,7 @@ def _add_tree_block(doc, tree):
     run = p.add_run(tree)
     run.font.name = "Consolas"
     run.font.size = Pt(8)
-    run.font.color.rgb = COLOR_DARK
+    run.font.color.rgb = COLOR_SECONDARY
 
 
 def _add_section_label(doc, text):
@@ -359,7 +408,7 @@ def _add_section_label(doc, text):
     run = p.add_run(f"  {text}  ")
     run.bold = True
     run.font.size = Pt(9)
-    run.font.color.rgb = COLOR_PRIMARY
+    run.font.color.rgb = COLOR_ACCENT
 
 
 def _format_size(bytes_size):
@@ -572,7 +621,7 @@ def _add_variables_section(doc, tasks):
         run = p.add_run(
             f"Resumen: {len(input_vars)} inputs, {len(output_vars)} outputs, {len(internal_vars)} internas"
         )
-        run.font.color.rgb = RGBColor(0x55, 0x55, 0x55)
+        run.font.color.rgb = COLOR_MUTED
         run.italic = True
 
         if input_vars:
