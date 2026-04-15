@@ -12,6 +12,18 @@ MARGIN_X = 60
 MARGIN_Y = 50
 START_RADIUS = 18
 
+
+def _blend_color(hex_color, opacity, bg="#ffffff"):
+    """Pre-computes a solid color equivalent to hex_color at given opacity over bg."""
+    c = hex_color.lstrip("#")
+    b = bg.lstrip("#")
+    cr, cg, cb = int(c[0:2], 16), int(c[2:4], 16), int(c[4:6], 16)
+    br, bg_val, bb = int(b[0:2], 16), int(b[2:4], 16), int(b[4:6], 16)
+    r = round(cr * opacity + br * (1 - opacity))
+    g = round(cg * opacity + bg_val * (1 - opacity))
+    bl = round(cb * opacity + bb * (1 - opacity))
+    return f"#{r:02x}{g:02x}{bl:02x}"
+
 def generate_flow_svg(flow):
     """
     Genera un SVG autocontenido para visualizar la interaccion entre taskbots.
@@ -149,8 +161,9 @@ def _build_svg_nodes(nodes, positions):
         elements.append(
             f'<rect x="{x}" y="{y}" width="{BOX_WIDTH}" height="{BOX_HEIGHT}" rx="18" fill="{fill}" stroke="{accent}" stroke-width="3" />'
         )
+        badge_fill = _blend_color(accent, 0.12, fill)
         elements.append(
-            f'<rect x="{x + 16}" y="{y + 14}" width="86" height="24" rx="12" fill="{accent}" opacity="0.12" />'
+            f'<rect x="{x + 16}" y="{y + 14}" width="86" height="24" rx="12" fill="{badge_fill}" />'
         )
         elements.append(
             f'<text x="{x + 59}" y="{y + 30}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" fill="{accent}">{html.escape(role)}</text>'
@@ -182,8 +195,9 @@ def _build_svg_starts(nodes, positions):
         position = positions[node["id"]]
         cx = position["x"] - 70
         cy = position["y"] + BOX_HEIGHT / 2
+        circle_fill = _blend_color("#0f172a", 0.9, "#f8fafc")
         elements.append(
-            f'<circle cx="{cx}" cy="{cy}" r="{START_RADIUS}" fill="#0f172a" opacity="0.9" />'
+            f'<circle cx="{cx}" cy="{cy}" r="{START_RADIUS}" fill="{circle_fill}" />'
         )
         elements.append(
             f'<text x="{cx}" y="{cy + 4}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="700" fill="#ffffff">IN</text>'
@@ -260,3 +274,26 @@ def _empty_svg(message):
 
 def _escape_label(value):
     return str(value).replace('"', "'").replace("\r", " ").replace("\n", " ").strip()
+
+
+def convert_svg_to_png(svg_path, png_path, scale=3.0):
+    """Convierte un archivo SVG a PNG usando svglib + reportlab."""
+    try:
+        from svglib.svglib import svg2rlg
+        from reportlab.graphics import renderPM
+
+        drawing = svg2rlg(str(svg_path))
+        if drawing is None:
+            logger.warning("No se pudo parsear el SVG: %s", svg_path)
+            return None
+
+        drawing.width *= scale
+        drawing.height *= scale
+        drawing.scale(scale, scale)
+
+        renderPM.drawToFile(drawing, str(png_path), fmt="PNG", dpi=150)
+        logger.info("SVG convertido a PNG: %s", png_path)
+        return str(png_path)
+    except Exception as exc:
+        logger.error("Error convirtiendo SVG a PNG: %s", exc)
+        return None

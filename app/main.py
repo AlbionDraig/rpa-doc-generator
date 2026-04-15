@@ -8,8 +8,10 @@ from fastapi.responses import FileResponse
 
 from app.analysis.flow_builder import build_flow
 from app.analysis.tree_builder import build_tree
-from app.generator.diagram_generator import generate_flow_svg
+from app.generator.diagram_generator import generate_flow_svg, convert_svg_to_png
 from app.generator.sdd_generator import generate_sdd, generate_sdd_file, generate_quality_file
+from app.generator.word_generator import generate_sdd_word, generate_quality_word
+from app.generator.pdf_generator import generate_sdd_pdf, generate_quality_pdf
 from app.ingestion.extractor import extract_project
 from app.ingestion.uploader import save_file
 from app.parser.project_parser import parse_project
@@ -84,6 +86,9 @@ async def generate(file: UploadFile):
         flow_svg_file = output_dir / "flujo_taskbots.svg"
         flow_svg_file.write_text(flow_svg, encoding="utf-8")
 
+        flow_png_file = output_dir / "flujo_taskbots.png"
+        convert_svg_to_png(str(flow_svg_file), str(flow_png_file))
+
         flow_visual = "\n".join(
             [
                 "![Flujo principal entre taskbots](flujo_taskbots.svg)",
@@ -98,6 +103,12 @@ async def generate(file: UploadFile):
         sdd_file = output_dir / f"SDD_{project_data['name']}.md"
         generate_sdd_file(project_data, tree, str(sdd_file), flow, flow_visual)
 
+        sdd_word_file = output_dir / f"SDD_{project_data['name']}.docx"
+        generate_sdd_word(project_data, tree, str(sdd_word_file), flow, str(flow_png_file))
+
+        sdd_pdf_file = output_dir / f"SDD_{project_data['name']}.pdf"
+        generate_sdd_pdf(sdd, str(sdd_pdf_file), project_data["name"], str(flow_png_file))
+
         logger.info("[COMPLETE] Procesamiento finalizado - Sesion: %s", session_id)
 
         return {
@@ -106,6 +117,8 @@ async def generate(file: UploadFile):
             "proyecto": project_data["name"],
             "archivos_salida": {
                 "sdd_path": str(sdd_file),
+                "sdd_word_path": str(sdd_word_file),
+                "sdd_pdf_path": str(sdd_pdf_file),
                 "flujo_svg_path": str(flow_svg_file),
             },
             "output_directory": str(output_dir),
@@ -142,6 +155,13 @@ async def quality(file: UploadFile):
         quality_file = output_dir / f"Calidad_{project_data['name']}.md"
         generate_quality_file(project_data, str(quality_file))
 
+        quality_word_file = output_dir / f"Calidad_{project_data['name']}.docx"
+        generate_quality_word(project_data, str(quality_word_file))
+
+        quality_md_content = quality_file.read_text(encoding="utf-8")
+        quality_pdf_file = output_dir / f"Calidad_{project_data['name']}.pdf"
+        generate_quality_pdf(quality_md_content, str(quality_pdf_file), project_data["name"])
+
         logger.info("[QUALITY-COMPLETE] Reporte generado - Sesion: %s", session_id)
 
         return {
@@ -150,6 +170,8 @@ async def quality(file: UploadFile):
             "proyecto": project_data["name"],
             "archivos_salida": {
                 "calidad_path": str(quality_file),
+                "calidad_word_path": str(quality_word_file),
+                "calidad_pdf_path": str(quality_pdf_file),
             },
             "output_directory": str(output_dir),
         }
@@ -174,7 +196,11 @@ async def download_file(session_id: str, file_type: str):
 
     file_map = {
         "sdd": lambda: list(output_dir.glob("SDD_*.md"))[0] if list(output_dir.glob("SDD_*.md")) else None,
+        "sdd_word": lambda: list(output_dir.glob("SDD_*.docx"))[0] if list(output_dir.glob("SDD_*.docx")) else None,
+        "sdd_pdf": lambda: list(output_dir.glob("SDD_*.pdf"))[0] if list(output_dir.glob("SDD_*.pdf")) else None,
         "calidad": lambda: list(output_dir.glob("Calidad_*.md"))[0] if list(output_dir.glob("Calidad_*.md")) else None,
+        "calidad_word": lambda: list(output_dir.glob("Calidad_*.docx"))[0] if list(output_dir.glob("Calidad_*.docx")) else None,
+        "calidad_pdf": lambda: list(output_dir.glob("Calidad_*.pdf"))[0] if list(output_dir.glob("Calidad_*.pdf")) else None,
         "flujo_svg": lambda: output_dir / "flujo_taskbots.svg",
     }
 

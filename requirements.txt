@@ -5,3 +5,7 @@ pydantic
 lxml
 pyyaml
 python-dateutil
+python-docx
+markdown
+xhtml2pdf
+svglib
