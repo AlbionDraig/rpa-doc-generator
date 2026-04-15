@@ -1,282 +1,342 @@
-import os
 import logging
 from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-def generate_sdd(project_data, tree, diagram, flow=None):
+def generate_sdd(project_data, tree, flow=None, flow_visual=None):
     """
-    Genera el documento SDD (Software Design Document) en formato Markdown.
-    
-    Args:
-        project_data (dict): Datos del proyecto
-        tree (str): Árbol de directorios en formato ASCII
-        diagram (str): Diagrama Mermaid del flujo
-        flow (dict): Estructura del flujo (opcional)
-        
-    Returns:
-        str: Contenido del SDD en Markdown
+    Genera el documento SDD en Markdown a partir del modelo AA360 ya parseado.
     """
     try:
-        template_path = Path("app/templates/sdd_template.md")
-        
-        if not template_path.exists():
-            logger.warning(f"Plantilla no encontrada: {template_path}")
-            # Usar plantilla por defecto si no existe
-            sdd_content = _generate_default_template()
-        else:
-            with open(template_path, "r", encoding="utf-8") as f:
-                sdd_content = f.read()
-        
-        # Preparar datos para llenar la plantilla
-        project_name = project_data.get("name", "Proyecto sin nombre")
+        template = _load_template()
         tasks = project_data.get("tasks", [])
         metadata = project_data.get("metadata", {})
-        
-        # Generar lista de tareas con detalles extendidos
-        tasks_details = _generate_tasks_section(tasks)
-        
-        # Generar tabla de variables por tarea
-        variables_table = _generate_variables_table(tasks)
-        
-        # Generar sección de estadísticas
-        stats_section = _generate_stats_section(project_data, flow)
-        
-        # Generar sección de metadatos
-        metadata_section = _generate_metadata_section(metadata)
-        
-        # Llenar la plantilla
-        sdd = sdd_content.format(
-            name=project_name,
-            description=metadata.get("description", "Documentación auto-generada del bot RPA"),
+
+        rendered = template.format(
+            name=project_data.get("name", "Proyecto sin nombre"),
+            description=metadata.get("description", "Documentacion auto-generada del bot RPA"),
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            overview=_generate_overview(project_data, flow),
+            statistics=_generate_stats_section(project_data, flow),
+            flow_visual=flow_visual or _generate_flow_visual_placeholder(),
+            task_inventory=_generate_task_inventory(tasks),
+            variables_section=_generate_variables_section(tasks),
+            systems_section=_generate_systems_section(project_data),
+            packages_section=_generate_packages_section(project_data),
             tree=tree,
-            diagram=diagram,
-            tasks=tasks_details,
-            variables_table=variables_table,
-            statistics=stats_section,
-            metadata=metadata_section
         )
-        
-        logger.info(f"SDD generado exitosamente para: {project_name}")
-        return sdd
-    
-    except Exception as e:
-        logger.error(f"Error generando SDD: {str(e)}")
+
+        logger.info("SDD generado exitosamente para: %s", project_data.get("name"))
+        return rendered
+    except Exception as exc:
+        logger.error("Error generando SDD: %s", exc)
         raise
 
 
-def generate_sdd_file(project_data, tree, diagram, output_path, flow=None):
+def generate_sdd_file(project_data, tree, output_path, flow=None, flow_visual=None):
     """
     Genera el SDD y lo guarda en un archivo.
-    
-    Args:
-        project_data (dict): Datos del proyecto
-        tree (str): Árbol de directorios
-        diagram (str): Diagrama Mermaid
-        output_path (str): Ruta donde guardar el archivo
-        flow (dict): Estructura del flujo (opcional)
-        
-    Returns:
-        str: Ruta del archivo generado
     """
     try:
-        sdd_content = generate_sdd(project_data, tree, diagram, flow)
-        
+        sdd_content = generate_sdd(project_data, tree, flow, flow_visual)
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(output_file, 'w', encoding='utf-8') as f:
-            f.write(sdd_content)
-        
-        logger.info(f"Archivo SDD guardado en: {output_file}")
+
+        with open(output_file, "w", encoding="utf-8") as file_obj:
+            file_obj.write(sdd_content)
+
+        logger.info("Archivo SDD guardado en: %s", output_file)
         return str(output_file)
-    
-    except Exception as e:
-        logger.error(f"Error guardando archivo SDD: {str(e)}")
+    except Exception as exc:
+        logger.error("Error guardando archivo SDD: %s", exc)
         raise
 
 
-def _generate_tasks_section(tasks):
-    """Genera la sección detallada de tareas con descripción."""
+def _load_template():
+    template_path = Path("app/templates/sdd_template.md")
+    if template_path.exists():
+        return template_path.read_text(encoding="utf-8")
+    return _generate_default_template()
+
+
+def _generate_overview(project_data, flow):
+    files = project_data.get("files", {})
+    metadata = project_data.get("metadata", {})
+    entrypoints = metadata.get("entrypoints", [])
+    packages = project_data.get("packages", [])
+    systems = project_data.get("systems", [])
+
+    lines = [
+        f"- **Nombre del bot:** {project_data.get('name', 'N/A')}",
+        f"- **Descripcion funcional:** {metadata.get('description', 'No disponible')}",
+        f"- **Taskbots detectados:** {project_data.get('task_count', 0)}",
+        f"- **Entrypoints:** {', '.join(entrypoints) if entrypoints else 'No identificados'}",
+        f"- **Paquetes AA360 usados:** {len(packages)}",
+        f"- **Sistemas externos detectados:** {len(systems)}",
+        f"- **Manifest presente:** {'Si' if files.get('manifest_count') else 'No'}",
+    ]
+
+    if flow:
+        lines.append(f"- **Dependencias entre taskbots:** {flow.get('summary', {}).get('total_edges', 0)}")
+
+    return "\n".join(lines)
+
+
+def _generate_stats_section(project_data, flow):
+    tasks = project_data.get("tasks", [])
+    files = project_data.get("files", {})
+
+    total_nodes = sum(task.get("node_stats", {}).get("total_nodes", 0) for task in tasks)
+    decision_nodes = sum(task.get("node_stats", {}).get("decision_nodes", 0) for task in tasks)
+    loop_nodes = sum(task.get("node_stats", {}).get("loop_nodes", 0) for task in tasks)
+    task_calls = sum(task.get("node_stats", {}).get("task_calls", 0) for task in tasks)
+    error_handlers = sum(task.get("node_stats", {}).get("error_handlers", 0) for task in tasks)
+    total_size = sum(task.get("size", 0) for task in tasks)
+
+    lines = [
+        f"- **Total de taskbots:** {len(tasks)}",
+        f"- **Archivos XML auxiliares:** {files.get('xml_count', 0)}",
+        f"- **Archivos JSON auxiliares:** {files.get('json_count', 0)}",
+        f"- **Nodos AA360 analizados:** {total_nodes}",
+        f"- **Condiciones detectadas:** {decision_nodes}",
+        f"- **Bucles o reintentos:** {loop_nodes}",
+        f"- **Invocaciones `runTask`:** {task_calls}",
+        f"- **Bloques de manejo de errores:** {error_handlers}",
+        f"- **Tamano total taskbots:** {_format_size(total_size)}",
+    ]
+
+    if flow:
+        lines.append(f"- **Aristas de flujo entre taskbots:** {flow.get('summary', {}).get('total_edges', 0)}")
+
+    return "\n".join(lines)
+
+
+def _generate_task_inventory(tasks):
     if not tasks:
-        return "No hay tareas en el proyecto."
-    
-    tasks_list = []
-    
-    for i, task in enumerate(tasks, 1):
-        task_name = task.get("name", f"Tarea {i}")
-        task_type = task.get("type", "unknown")
-        task_size = task.get("size", 0)
-        description = task.get("description", "Sin descripción disponible")
-        
-        size_str = _format_size(task_size)
-        
-        # Crear sección para cada tarea
-        task_section = f"### {i}. {task_name}\n\n"
-        task_section += f"**Tipo:** `{task_type}` | **Tamaño:** {size_str}\n\n"
-        task_section += f"**Descripción:** {description}\n\n"
-        
-        # Agregar información de acciones si existe
-        actions = task.get("actions", [])
+        return "No se detectaron taskbots en el paquete exportado."
+
+    sections = []
+    for index, task in enumerate(tasks, start=1):
+        sections.append(f"### {index}. {task.get('name', 'Taskbot')}")
+        sections.append("")
+        sections.append(f"- **Rol:** {task.get('role', 'taskbot')}")
+        sections.append(f"- **Ruta:** `{task.get('path', '')}`")
+        sections.append(f"- **Entrypoint:** {'Si' if task.get('is_entrypoint') else 'No'}")
+        sections.append(f"- **Tamano:** {_format_size(task.get('size', 0))}")
+        if task.get("description"):
+            sections.append(f"- **Descripcion declarada:** {task['description']}")
+        if task.get("developer"):
+            sections.append(f"- **Developer declarado:** {task['developer']}")
+        if task.get("declared_date"):
+            sections.append(f"- **Fecha declarada:** {task['declared_date']}")
+
+        sections.append(
+            "- **Resumen estructural:** "
+            f"{task.get('node_stats', {}).get('total_nodes', 0)} nodos, "
+            f"{task.get('node_stats', {}).get('decision_nodes', 0)} condiciones, "
+            f"{task.get('node_stats', {}).get('loop_nodes', 0)} bucles, "
+            f"{task.get('node_stats', {}).get('task_calls', 0)} llamadas a subtasks"
+        )
+        sections.append(f"- **Manejo de errores:** {_describe_error_handling(task.get('error_handling', {}))}")
+
+        dependencies = task.get("dependencies", [])
+        dependency_label = ", ".join(
+            f"{dependency['name']} ({dependency['type']})" for dependency in dependencies
+        )
+        sections.append(f"- **Dependencias:** {dependency_label if dependency_label else 'Sin dependencias'}")
+
+        task_calls = task.get("task_calls", [])
+        if task_calls:
+            call_summaries = [
+                f"{call['target_name']} [{len(call.get('inputs', []))} in / {len(call.get('outputs', []))} out]"
+                for call in task_calls
+            ]
+            sections.append(f"- **Subtasks invocadas:** {', '.join(call_summaries)}")
+
+        packages = task.get("packages", [])
+        if packages:
+            package_summary = ", ".join(
+                f"{package['name']} {package['version']}".strip() for package in packages[:10]
+            )
+            sections.append(f"- **Paquetes usados por el taskbot:** {package_summary}")
+
+        actions = _unique_preserve(task.get("actions", []))[:10]
         if actions:
-            task_section += "**Pasos/Acciones:**\n"
-            for action in actions:
-                action_name = action.get("name", "Paso")
-                action_desc = action.get("description", "")
-                action_type = action.get("type", "")
-                task_section += f"- {action_name} ({action_type})"
-                if action_desc:
-                    task_section += f": {action_desc}"
-                task_section += "\n"
-            task_section += "\n"
-        
-        # Agregar información de atributos si existe
-        attributes = task.get("attributes", {})
-        if attributes:
-            task_section += "**Atributos:**\n"
-            for key, value in attributes.items():
-                task_section += f"- `{key}`: {value}\n"
-            task_section += "\n"
-        
-        tasks_list.append(task_section)
-    
-    return "".join(tasks_list)
+            sections.append("- **Pasos principales:**")
+            sections.extend(f"  - {action}" for action in actions)
+
+        comments = _unique_preserve(task.get("comments", []))[:5]
+        if comments:
+            sections.append("- **Comentarios funcionales relevantes:**")
+            sections.extend(f"  - {comment}" for comment in comments)
+
+        systems = task.get("systems", [])
+        if systems:
+            system_summary = ", ".join(
+                f"{system['type']}: {system['value']}" for system in systems[:5]
+            )
+            sections.append(f"- **Sistemas y endpoints detectados:** {system_summary}")
+
+        sections.append("")
+
+    return "\n".join(sections).rstrip()
 
 
-def _generate_variables_table(tasks):
-    """Genera una tabla de variables de entrada y salida por tarea."""
+def _generate_variables_section(tasks):
     if not tasks:
-        return "No hay variables registradas."
-    
-    table = "## Variables de Entrada y Salida por Tarea\n\n"
-    
-    has_variables = False
-    
-    for i, task in enumerate(tasks, 1):
-        task_name = task.get("name", f"Tarea {i}").replace(".xml", "").replace(".json", "")
-        variables = task.get("variables", {"input": [], "output": []})
-        
+        return "No se detectaron variables documentables."
+
+    sections = []
+    for task in tasks:
+        variables = task.get("variables", {})
         input_vars = variables.get("input", [])
         output_vars = variables.get("output", [])
-        
-        if input_vars or output_vars:
-            has_variables = True
-            table += f"### {task_name}\n\n"
-            
-            # Tabla de entrada
-            if input_vars:
-                table += "**Variables de Entrada:**\n\n"
-                table += "| Nombre | Tipo | Valor |\n"
-                table += "|--------|------|-------|\n"
-                for var in input_vars:
-                    name = var.get("name", "N/A")
-                    var_type = var.get("type", "String")
-                    value = var.get("value", "")
-                    table += f"| {name} | {var_type} | {value} |\n"
-                table += "\n"
-            
-            # Tabla de salida
-            if output_vars:
-                table += "**Variables de Salida:**\n\n"
-                table += "| Nombre | Tipo | Valor |\n"
-                table += "|--------|------|-------|\n"
-                for var in output_vars:
-                    name = var.get("name", "N/A")
-                    var_type = var.get("type", "String")
-                    value = var.get("value", "")
-                    table += f"| {name} | {var_type} | {value} |\n"
-                table += "\n"
-    
-    if not has_variables:
-        return "No hay variables de entrada/salida registradas en las tareas."
-    
-    return table
+        internal_vars = variables.get("internal", [])
+
+        sections.append(f"### {task.get('name', 'Taskbot')}")
+        sections.append("")
+        sections.append(
+            f"- **Resumen:** {len(input_vars)} inputs, {len(output_vars)} outputs, {len(internal_vars)} internas"
+        )
+
+        if input_vars:
+            sections.append("")
+            sections.append("**Variables de entrada**")
+            sections.append("")
+            sections.append("| Nombre | Tipo | Default | Descripcion |")
+            sections.append("|--------|------|---------|-------------|")
+            for variable in input_vars:
+                sections.append(
+                    f"| {variable['name']} | {variable['type']} | {variable['default'] or '-'} | {variable['description'] or '-'} |"
+                )
+
+        if output_vars:
+            sections.append("")
+            sections.append("**Variables de salida**")
+            sections.append("")
+            sections.append("| Nombre | Tipo | Default | Descripcion |")
+            sections.append("|--------|------|---------|-------------|")
+            for variable in output_vars:
+                sections.append(
+                    f"| {variable['name']} | {variable['type']} | {variable['default'] or '-'} | {variable['description'] or '-'} |"
+                )
+
+        if internal_vars:
+            sections.append("")
+            sections.append("**Variables internas relevantes**")
+            sections.append("")
+            sections.append("| Nombre | Tipo | Scope | Default |")
+            sections.append("|--------|------|-------|---------|")
+            for variable in internal_vars[:12]:
+                sections.append(
+                    f"| {variable['name']} | {variable['type']} | {variable['scope']} | {variable['default'] or '-'} |"
+                )
+
+        sections.append("")
+
+    return "\n".join(sections).rstrip()
 
 
-def _generate_stats_section(project_data, flow=None):
-    """Genera la sección de estadísticas."""
-    stats = []
-    
-    tasks = project_data.get("tasks", [])
-    file_counts = project_data.get("files", {})
-    
-    stats.append(f"- **Total de tareas:** {len(tasks)}")
-    stats.append(f"- **Archivos XML:** {file_counts.get('xml_count', 0)}")
-    stats.append(f"- **Archivos JSON:** {file_counts.get('json_count', 0)}")
-    
-    if flow and "summary" in flow:
-        summary = flow["summary"]
-        stats.append(f"- **Nodos en flujo:** {summary.get('total_nodes', 0)}")
-        stats.append(f"- **Conexiones:** {summary.get('total_edges', 0)}")
-    
-    # Calcular tamaño total
-    total_size = sum(t.get("size", 0) for t in tasks)
-    stats.append(f"- **Tamaño total:** {_format_size(total_size)}")
-    
-    return "\n".join(stats)
+def _generate_systems_section(project_data):
+    systems = project_data.get("systems", [])
+    if not systems:
+        return "No se detectaron sistemas externos o configuraciones tecnicas relevantes."
+
+    lines = []
+    for system in systems:
+        lines.append(
+            f"- **{system['type']}**: `{system['value']}` (origen: `{system['source']}`)"
+        )
+    return "\n".join(lines)
 
 
-def _generate_metadata_section(metadata):
-    """Genera la sección de metadatos."""
-    if not metadata:
-        return "No hay metadatos disponibles."
-    
-    metadata_list = []
-    for key, value in metadata.items():
-        # Esconder datos sensibles
-        if key.lower() in ['password', 'token', 'secret', 'api_key']:
-            value = "***"
-        
-        metadata_list.append(f"- **{key}:** {value}")
-    
-    return "\n".join(metadata_list)
+def _generate_packages_section(project_data):
+    packages = project_data.get("packages", [])
+    if not packages:
+        return "No se detectaron paquetes de AA360."
+
+    lines = ["| Paquete | Version |", "|---------|---------|"]
+    for package in packages:
+        lines.append(f"| {package['name']} | {package['version'] or '-'} |")
+    return "\n".join(lines)
+
+
+def _generate_flow_visual_placeholder():
+    return "_No se genero una imagen del flujo para esta ejecucion._"
+
+
+def _describe_error_handling(error_handling):
+    states = []
+    if error_handling.get("has_try"):
+        states.append("try")
+    if error_handling.get("has_catch"):
+        states.append("catch")
+    if error_handling.get("has_finally"):
+        states.append("finally")
+    return ", ".join(states) if states else "No explicito"
+
+
+def _unique_preserve(values):
+    seen = set()
+    unique = []
+    for value in values:
+        normalized = str(value).strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        unique.append(normalized)
+    return unique
 
 
 def _format_size(bytes_size):
-    """Convierte bytes a formato legible."""
     if bytes_size is None:
         return "0B"
-    
-    bytes_size = int(bytes_size)
-    for unit in ['B', 'KB', 'MB', 'GB']:
-        if bytes_size < 1024:
-            return f"{bytes_size:.1f}{unit}"
-        bytes_size /= 1024
-    return f"{bytes_size:.1f}TB"
+
+    size = int(bytes_size)
+    for unit in ["B", "KB", "MB", "GB"]:
+        if size < 1024:
+            return f"{size:.1f}{unit}"
+        size /= 1024
+    return f"{size:.1f}TB"
 
 
 def _generate_default_template():
-    """Retorna una plantilla por defecto si no existe."""
     return """# SDD - {name}
 
-## 1. Información General
-- **Nombre del Bot:** {name}
-- **Descripción:** {description}
-- **Fecha de Generación:** {generated_date}
+## 1. Informacion General
+{overview}
 
-## 2. Estadísticas
+## 2. Estadisticas del Proyecto
 {statistics}
 
-## 3. Estructura del Proyecto
+## 3. Flujo Principal Entre Taskbots
+{flow_visual}
+
+### Referencia Mermaid
+<details>
+<summary>Ver codigo Mermaid del flujo</summary>
+
+{diagram}
+</details>
+
+## 4. Inventario de Taskbots
+{task_inventory}
+
+## 5. Contrato de Variables
+{variables_section}
+
+## 6. Sistemas Externos y Configuracion Tecnica
+{systems_section}
+
+## 7. Paquetes AA360 Detectados
+{packages_section}
+
+## 8. Estructura del Proyecto
 ```
 {tree}
 ```
 
-## 4. Flujo de Procesos
-{diagram}
-
-## 5. Detalle de Tareas
-{tasks}
-
-## 6. Variables de Entrada y Salida
-{variables_table}
-
-## 7. Metadatos
-{metadata}
-
 ---
-*Documento generado automáticamente por RPA-Doc-Generator*
+Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.
 """
-

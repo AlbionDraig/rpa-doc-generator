@@ -1,30 +1,30 @@
 # SDD - {name}
 
-## 1. Información General
-- **Nombre del Bot:** {name}
-- **Descripción:** {description}
-- **Fecha de Generación:** {generated_date}
+## 1. Informacion General
+{overview}
 
-## 2. Estadísticas del Proyecto
+## 2. Estadisticas del Proyecto
 {statistics}
 
-## 3. Estructura del Proyecto
+## 3. Flujo Principal Entre Taskbots
+{flow_visual}
+
+## 4. Inventario de Taskbots
+{task_inventory}
+
+## 5. Contrato de Variables
+{variables_section}
+
+## 6. Sistemas Externos y Configuracion Tecnica
+{systems_section}
+
+## 7. Paquetes AA360 Detectados
+{packages_section}
+
+## 8. Estructura del Proyecto
 ```
 {tree}
 ```
 
-## 4. Flujo de Procesos
-{diagram}
-
-## 5. Detalle de Tareas
-{tasks}
-
-## 6. Variables de Entrada y Salida
-{variables_table}
-
-## 7. Metadatos y Configuración
-{metadata}
-
 ---
-*Documento generado automáticamente por RPA-Doc-Generator*
-
+Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.

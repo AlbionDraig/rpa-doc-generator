@@ -1,45 +1,43 @@
-import os
 import logging
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+CHUNK_SIZE = 1024 * 1024
+
+
 def save_file(file):
     """
-    Guarda un archivo ZIP subido en la carpeta temporal.
-    
-    Args:
-        file: UploadFile de FastAPI
-        
-    Returns:
-        str: Ruta donde se guardó el archivo
-        
-    Raises:
-        ValueError: Si el archivo no es válido o no es ZIP
+    Guarda un ZIP subido en disco usando lectura por bloques.
     """
-    # Validar que sea un archivo ZIP
-    if not file.filename.endswith('.zip'):
-        logger.error(f"Archivo inválido: {file.filename}. Debe ser .zip")
-        raise ValueError(f"El archivo debe ser .zip, recibió: {file.filename}")
-    
-    # Crear carpeta temporal con timestamp para evitar conflictos
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        logger.error("Archivo invalido: %s. Debe ser .zip", file.filename)
+        raise ValueError(f"El archivo debe ser .zip, recibio: {file.filename}")
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     tmp_dir = Path("./tmp") / timestamp
     tmp_dir.mkdir(parents=True, exist_ok=True)
-    
-    file_path = tmp_dir / file.filename
-    
+
+    safe_name = Path(file.filename).name
+    file_path = tmp_dir / safe_name
+    total_bytes = 0
+
     try:
-        with open(file_path, "wb") as f:
-            content = file.file.read()
-            if not content:
-                raise ValueError("El archivo está vacío")
-            f.write(content)
-        
-        logger.info(f"Archivo guardado exitosamente: {file_path}")
+        file.file.seek(0)
+        with open(file_path, "wb") as file_obj:
+            while True:
+                chunk = file.file.read(CHUNK_SIZE)
+                if not chunk:
+                    break
+                file_obj.write(chunk)
+                total_bytes += len(chunk)
+
+        if total_bytes == 0:
+            raise ValueError("El archivo esta vacio")
+
+        logger.info("Archivo guardado exitosamente: %s (%s bytes)", file_path, total_bytes)
         return str(file_path)
-    
-    except Exception as e:
-        logger.error(f"Error guardando archivo: {str(e)}")
+    except Exception as exc:
+        logger.error("Error guardando archivo: %s", exc)
         raise

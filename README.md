@@ -10,7 +10,7 @@
 
 ✅ **Extracción automática** de archivos ZIP  
 ✅ **Análisis inteligente** de estructura y tareas  
-✅ **Generación de diagramas** con Mermaid  
+✅ **Generación de diagramas**  
 ✅ **Documentación completa** en formato Markdown  
 ✅ **Estadísticas detalladas** del proyecto  
 ✅ **API REST** con FastAPI  
