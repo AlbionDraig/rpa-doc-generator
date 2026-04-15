@@ -17,14 +17,17 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
             name=project_data.get("name", "Proyecto sin nombre"),
             description=metadata.get("description", "Documentacion auto-generada del bot RPA"),
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            toc=_generate_toc(project_data),
             overview=_generate_overview(project_data, flow),
             statistics=_generate_stats_section(project_data, flow),
             flow_visual=flow_visual or _generate_flow_visual_placeholder(),
+            dependency_contracts=_generate_dependency_contracts(tasks),
             task_inventory=_generate_task_inventory(tasks),
             variables_section=_generate_variables_section(tasks),
             credentials_section=_generate_credentials_section(project_data),
             systems_section=_generate_systems_section(project_data),
             packages_section=_generate_packages_section(project_data),
+            quality_observations=_generate_quality_observations(project_data),
             tree=tree,
         )
 
@@ -283,6 +286,155 @@ def _generate_flow_visual_placeholder():
     return "_No se genero una imagen del flujo para esta ejecucion._"
 
 
+def _generate_toc(project_data):
+    tasks = project_data.get("tasks", [])
+    task_names = [task.get("name", "Taskbot") for task in tasks]
+
+    lines = [
+        "1. [Informacion General](#1-informacion-general)",
+        "2. [Estadisticas del Proyecto](#2-estadisticas-del-proyecto)",
+        "3. [Flujo Principal Entre Taskbots](#3-flujo-principal-entre-taskbots)",
+        "4. [Contrato de Dependencias](#4-contrato-de-dependencias)",
+        "5. [Inventario de Taskbots](#5-inventario-de-taskbots)",
+    ]
+    for index, name in enumerate(task_names, start=1):
+        anchor = name.lower().replace(" ", "-")
+        lines.append(f"   - [{name}](#{index}-{anchor})")
+    lines.extend([
+        "6. [Contrato de Variables](#6-contrato-de-variables)",
+        "7. [Credenciales y Vaults](#7-credenciales-y-vaults)",
+        "8. [Sistemas Externos y Configuracion Tecnica](#8-sistemas-externos-y-configuracion-tecnica)",
+        "9. [Paquetes AA360 Detectados](#9-paquetes-aa360-detectados)",
+        "10. [Estructura del Proyecto](#10-estructura-del-proyecto)",
+        "11. [Observaciones de Calidad](#11-observaciones-de-calidad)",
+    ])
+    return "\n".join(lines)
+
+
+def _generate_dependency_contracts(tasks):
+    contracts = []
+    for task in tasks:
+        task_calls = task.get("task_calls", [])
+        if not task_calls:
+            continue
+        for call in task_calls:
+            target = call.get("target_name", "subtask")
+            inputs = call.get("inputs", [])
+            outputs = call.get("outputs", [])
+            contracts.append({
+                "caller": task.get("name", "Taskbot"),
+                "target": target,
+                "inputs": inputs,
+                "outputs": outputs,
+            })
+
+    if not contracts:
+        return "No se detectaron invocaciones `runTask` entre taskbots."
+
+    sections = []
+    for contract in contracts:
+        sections.append(f"### {contract['caller']} → {contract['target']}")
+        sections.append("")
+
+        if contract["inputs"]:
+            sections.append("**Variables enviadas (entrada)**")
+            sections.append("")
+            sections.append("| Variable | Valor asignado |")
+            sections.append("|----------|----------------|")
+            for inp in contract["inputs"]:
+                sections.append(f"| {inp.get('name', '-')} | {inp.get('value', '-') or '-'} |")
+            sections.append("")
+        else:
+            sections.append("_Sin variables de entrada._")
+            sections.append("")
+
+        if contract["outputs"]:
+            sections.append("**Variables recibidas (salida)**")
+            sections.append("")
+            sections.append("| Variable destino | Variable origen |")
+            sections.append("|------------------|-----------------|")
+            for out in contract["outputs"]:
+                sections.append(f"| {out.get('name', '-')} | {out.get('value', '-') or '-'} |")
+            sections.append("")
+        else:
+            sections.append("_Sin variables de salida._")
+            sections.append("")
+
+    return "\n".join(sections).rstrip()
+
+
+def _generate_quality_observations(project_data):
+    tasks = project_data.get("tasks", [])
+    observations = []
+
+    # Nodos deshabilitados
+    for task in tasks:
+        disabled = task.get("node_stats", {}).get("disabled_nodes", 0)
+        if disabled > 0:
+            observations.append(
+                f"⚠ **{task['name']}** tiene {disabled} nodo(s) deshabilitado(s). "
+                "Codigo muerto puede dificultar el mantenimiento."
+            )
+
+    # Sin manejo de errores
+    for task in tasks:
+        eh = task.get("error_handling", {})
+        if not eh.get("has_try") and task.get("type") == "taskbot":
+            observations.append(
+                f"⚠ **{task['name']}** no tiene bloques try/catch. "
+                "Se recomienda manejo de errores explicito."
+            )
+
+    # Try sin catch
+    for task in tasks:
+        eh = task.get("error_handling", {})
+        if eh.get("has_try") and not eh.get("has_catch"):
+            observations.append(
+                f"⚠ **{task['name']}** tiene `try` pero no `catch`. "
+                "Los errores no seran capturados."
+            )
+
+    # Sin descripcion
+    for task in tasks:
+        if not task.get("description") and task.get("type") == "taskbot":
+            observations.append(
+                f"ℹ **{task['name']}** no tiene descripcion declarada en cabecera."
+            )
+
+    # Sin developer
+    for task in tasks:
+        if not task.get("developer") and task.get("type") == "taskbot":
+            observations.append(
+                f"ℹ **{task['name']}** no tiene developer declarado en cabecera."
+            )
+
+    # Rutas hardcodeadas (no expresiones AA360)
+    for task in tasks:
+        for system in task.get("systems", []):
+            value = system.get("value", "")
+            if system["type"] == "file" and not value.startswith("file://$") and "$" not in value:
+                observations.append(
+                    f"⚠ **{task['name']}** usa ruta de archivo hardcodeada: `{value}`. "
+                    "Considere usar variables globales."
+                )
+
+    # Credenciales no detectadas pero hay conexiones DB
+    credentials = project_data.get("credentials", [])
+    systems = project_data.get("systems", [])
+    has_db = any(s["type"] == "database" for s in systems)
+    if has_db and not credentials:
+        observations.append(
+            "⚠ Se detectaron conexiones a base de datos pero no se encontraron "
+            "credenciales via CredentialVault. Verifique que las credenciales "
+            "no estan hardcodeadas en las cadenas de conexion."
+        )
+
+    if not observations:
+        return "No se detectaron observaciones relevantes. El bot cumple las buenas practicas basicas."
+
+    return "\n".join(f"- {obs}" for obs in observations)
+
+
 def _describe_error_handling(error_handling):
     states = []
     if error_handling.get("has_try"):
@@ -321,6 +473,9 @@ def _format_size(bytes_size):
 def _generate_default_template():
     return """# SDD - {name}
 
+## Tabla de Contenido
+{toc}
+
 ## 1. Informacion General
 {overview}
 
@@ -330,32 +485,31 @@ def _generate_default_template():
 ## 3. Flujo Principal Entre Taskbots
 {flow_visual}
 
-### Referencia Mermaid
-<details>
-<summary>Ver codigo Mermaid del flujo</summary>
+## 4. Contrato de Dependencias
+{dependency_contracts}
 
-{diagram}
-</details>
-
-## 4. Inventario de Taskbots
+## 5. Inventario de Taskbots
 {task_inventory}
 
-## 5. Contrato de Variables
+## 6. Contrato de Variables
 {variables_section}
 
-## 6. Credenciales y Vaults
+## 7. Credenciales y Vaults
 {credentials_section}
 
-## 7. Sistemas Externos y Configuracion Tecnica
+## 8. Sistemas Externos y Configuracion Tecnica
 {systems_section}
 
-## 8. Paquetes AA360 Detectados
+## 9. Paquetes AA360 Detectados
 {packages_section}
 
-## 9. Estructura del Proyecto
+## 10. Estructura del Proyecto
 ```
 {tree}
 ```
+
+## 11. Observaciones de Calidad
+{quality_observations}
 
 ---
 Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.

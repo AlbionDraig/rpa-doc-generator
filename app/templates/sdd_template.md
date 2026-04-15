@@ -1,5 +1,8 @@
 # SDD - {name}
 
+## Tabla de Contenido
+{toc}
+
 ## 1. Informacion General
 {overview}
 
@@ -9,25 +12,31 @@
 ## 3. Flujo Principal Entre Taskbots
 {flow_visual}
 
-## 4. Inventario de Taskbots
+## 4. Contrato de Dependencias
+{dependency_contracts}
+
+## 5. Inventario de Taskbots
 {task_inventory}
 
-## 5. Contrato de Variables
+## 6. Contrato de Variables
 {variables_section}
 
-## 6. Credenciales y Vaults
+## 7. Credenciales y Vaults
 {credentials_section}
 
-## 7. Sistemas Externos y Configuracion Tecnica
+## 8. Sistemas Externos y Configuracion Tecnica
 {systems_section}
 
-## 8. Paquetes AA360 Detectados
+## 9. Paquetes AA360 Detectados
 {packages_section}
 
-## 9. Estructura del Proyecto
+## 10. Estructura del Proyecto
 ```
 {tree}
 ```
+
+## 11. Observaciones de Calidad
+{quality_observations}
 
 ---
 Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.
