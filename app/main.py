@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -99,32 +98,6 @@ async def generate(file: UploadFile):
         sdd_file = output_dir / f"SDD_{project_data['name']}.md"
         generate_sdd_file(project_data, tree, str(sdd_file), flow, flow_visual)
 
-        tree_file = output_dir / "estructura.txt"
-        tree_file.write_text(tree, encoding="utf-8")
-
-        summary_file = output_dir / "resumen.json"
-        summary = {
-            "nombre_proyecto": project_data["name"],
-            "total_taskbots": project_data["task_count"],
-            "total_tareas": project_data["task_count"],
-            "entrypoints": project_data.get("metadata", {}).get("entrypoints", []),
-            "archivos_xml": project_data["files"]["xml_count"],
-            "archivos_json": project_data["files"]["json_count"],
-            "paquetes_detectados": len(project_data.get("packages", [])),
-            "sistemas_detectados": len(project_data.get("systems", [])),
-            "credenciales_detectadas": len(project_data.get("credentials", [])),
-            "nodos_flujo": flow["summary"]["total_nodes"],
-            "conexiones": flow["summary"]["total_edges"],
-            "fecha_generacion": datetime.now().isoformat(),
-            "archivos_salida": {
-                "sdd": str(sdd_file),
-                "flujo_svg": str(flow_svg_file),
-                "estructura": str(tree_file),
-                "resumen": str(summary_file),
-            },
-        }
-        summary_file.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-
         logger.info("[COMPLETE] Procesamiento finalizado - Sesion: %s", session_id)
 
         return {
@@ -134,8 +107,6 @@ async def generate(file: UploadFile):
             "archivos_salida": {
                 "sdd_path": str(sdd_file),
                 "flujo_svg_path": str(flow_svg_file),
-                "estructura_path": str(tree_file),
-                "resumen_path": str(summary_file),
             },
             "output_directory": str(output_dir),
         }
@@ -205,8 +176,6 @@ async def download_file(session_id: str, file_type: str):
         "sdd": lambda: list(output_dir.glob("SDD_*.md"))[0] if list(output_dir.glob("SDD_*.md")) else None,
         "calidad": lambda: list(output_dir.glob("Calidad_*.md"))[0] if list(output_dir.glob("Calidad_*.md")) else None,
         "flujo_svg": lambda: output_dir / "flujo_taskbots.svg",
-        "estructura": lambda: output_dir / "estructura.txt",
-        "resumen": lambda: output_dir / "resumen.json",
     }
 
     if file_type not in file_map:
