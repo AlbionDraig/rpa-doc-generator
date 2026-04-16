@@ -12,47 +12,57 @@
 
 ---
 
-## 2. Estadisticas del Proyecto
+## 2. Resumen Ejecutivo
+{executive_summary}
+
+---
+
+## 3. Estadisticas del Proyecto
 {statistics}
 
 ---
 
-## 3. Flujo Principal Entre Taskbots
+## 4. Flujo Principal Entre Taskbots
 {flow_visual}
 
 ---
 
-## 4. Contrato de Dependencias
+## 5. Contrato de Dependencias
 {dependency_contracts}
 
 ---
 
-## 5. Inventario de Taskbots
+## 6. Inventario de Taskbots
 {task_inventory}
 
 ---
 
-## 6. Contrato de Variables
+## 7. Contrato de Variables
 {variables_section}
 
 ---
 
-## 7. Credenciales y Vaults
+## 8. Credenciales y Vaults
 {credentials_section}
 
 ---
 
-## 8. Sistemas Externos y Configuracion Tecnica
+## 9. Sistemas Externos y Configuracion Tecnica
 {systems_section}
 
 ---
 
-## 9. Paquetes AA360 Detectados
+## 10. Paquetes AA360 Detectados
 {packages_section}
 
 ---
 
-## 10. Estructura del Proyecto
+## 11. Puntos Criticos del Bot
+{critical_points}
+
+---
+
+## 12. Estructura del Proyecto
 ```
 {tree}
 ```

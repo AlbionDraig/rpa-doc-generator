@@ -2,6 +2,13 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from app.analysis.task_ai_describer import (
+    build_sdd_ai_insights,
+    build_quality_prioritization,
+    build_quality_task_descriptions,
+    classify_task_for_aa360,
+)
+
 logger = logging.getLogger(__name__)
 
 def generate_sdd(project_data, tree, flow=None, flow_visual=None):
@@ -12,11 +19,13 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
         template = _load_template()
         tasks = project_data.get("tasks", [])
         metadata = project_data.get("metadata", {})
+        sdd_ai_insights = build_sdd_ai_insights(project_data, flow)
 
         rendered = template.format(
             name=project_data.get("name", "Proyecto sin nombre"),
             generated_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             toc=_generate_toc(project_data),
+            executive_summary=_generate_executive_summary_section(sdd_ai_insights),
             overview=_generate_overview(project_data, flow),
             statistics=_generate_stats_section(project_data, flow),
             flow_visual=flow_visual or _generate_flow_visual_placeholder(),
@@ -26,6 +35,7 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
             credentials_section=_generate_credentials_section(project_data),
             systems_section=_generate_systems_section(project_data),
             packages_section=_generate_packages_section(project_data),
+            critical_points=_generate_critical_points_section(sdd_ai_insights),
             tree=tree,
         )
 
@@ -85,6 +95,23 @@ def _generate_overview(project_data, flow):
     return "\n".join(lines)
 
 
+def _generate_executive_summary_section(sdd_ai_insights):
+    summary = sdd_ai_insights.get("executive_summary", [])
+    source = sdd_ai_insights.get("source", "heuristic")
+    confidence = sdd_ai_insights.get("confidence", "media")
+
+    if not summary:
+        return "No se pudo generar resumen ejecutivo."
+
+    lines = [
+        f"- **Fuente de analisis:** {source}",
+        f"- **Confianza estimada:** {confidence}",
+        "",
+    ]
+    lines.extend(f"- {item}" for item in summary)
+    return "\n".join(lines)
+
+
 def _generate_stats_section(project_data, flow):
     tasks = project_data.get("tasks", [])
     files = project_data.get("files", {})
@@ -123,6 +150,7 @@ def _generate_task_inventory(tasks):
         sections.append(f"### {index}. {task.get('name', 'Taskbot')}")
         sections.append("")
         sections.append(f"- **Rol:** {task.get('role', 'taskbot')}")
+        sections.append(f"- **Perfil AA360 sugerido:** {classify_task_for_aa360(task)}")
         sections.append(f"- **Ruta:** `{task.get('path', '')}`")
         sections.append(f"- **Entrypoint:** {'Si' if task.get('is_entrypoint') else 'No'}")
         sections.append(f"- **Tamano:** {_format_size(task.get('size', 0))}")
@@ -280,6 +308,14 @@ def _generate_packages_section(project_data):
     return "\n".join(lines)
 
 
+def _generate_critical_points_section(sdd_ai_insights):
+    critical_points = sdd_ai_insights.get("critical_points", [])
+    if not critical_points:
+        return "No se detectaron puntos criticos."
+
+    return "\n".join(f"- {item}" for item in critical_points)
+
+
 def _generate_flow_visual_placeholder():
     return "_No se genero una imagen del flujo para esta ejecucion._"
 
@@ -290,20 +326,22 @@ def _generate_toc(project_data):
 
     lines = [
         "1. [Informacion General](#1-informacion-general)",
-        "2. [Estadisticas del Proyecto](#2-estadisticas-del-proyecto)",
-        "3. [Flujo Principal Entre Taskbots](#3-flujo-principal-entre-taskbots)",
-        "4. [Contrato de Dependencias](#4-contrato-de-dependencias)",
-        "5. [Inventario de Taskbots](#5-inventario-de-taskbots)",
+        "2. [Resumen Ejecutivo](#2-resumen-ejecutivo)",
+        "3. [Estadisticas del Proyecto](#3-estadisticas-del-proyecto)",
+        "4. [Flujo Principal Entre Taskbots](#4-flujo-principal-entre-taskbots)",
+        "5. [Contrato de Dependencias](#5-contrato-de-dependencias)",
+        "6. [Inventario de Taskbots](#6-inventario-de-taskbots)",
     ]
     for index, name in enumerate(task_names, start=1):
         anchor = name.lower().replace(" ", "-")
         lines.append(f"   - [{name}](#{index}-{anchor})")
     lines.extend([
-        "6. [Contrato de Variables](#6-contrato-de-variables)",
-        "7. [Credenciales y Vaults](#7-credenciales-y-vaults)",
-        "8. [Sistemas Externos y Configuracion Tecnica](#8-sistemas-externos-y-configuracion-tecnica)",
-        "9. [Paquetes AA360 Detectados](#9-paquetes-aa360-detectados)",
-        "10. [Estructura del Proyecto](#10-estructura-del-proyecto)",
+        "7. [Contrato de Variables](#7-contrato-de-variables)",
+        "8. [Credenciales y Vaults](#8-credenciales-y-vaults)",
+        "9. [Sistemas Externos y Configuracion Tecnica](#9-sistemas-externos-y-configuracion-tecnica)",
+        "10. [Paquetes AA360 Detectados](#10-paquetes-aa360-detectados)",
+        "11. [Puntos Criticos del Bot](#11-puntos-criticos-del-bot)",
+        "12. [Estructura del Proyecto](#12-estructura-del-proyecto)",
     ])
     return "\n".join(lines)
 
@@ -365,6 +403,7 @@ def _generate_quality_observations(project_data):
     tasks = project_data.get("tasks", [])
     project_name = project_data.get("name", "Proyecto")
     observations = []
+    task_descriptions = build_quality_task_descriptions(tasks)
 
     # Nodos deshabilitados
     for task in tasks:
@@ -433,6 +472,11 @@ def _generate_quality_observations(project_data):
     else:
         body = "\n".join(f"- {obs}" for obs in observations)
 
+    interpretation_section = _generate_task_interpretation_section(tasks, task_descriptions)
+    prioritization = build_quality_prioritization(project_data, task_descriptions, observations)
+    priority_section = _generate_priority_findings_section(prioritization)
+    sprint_plan_section = _generate_sprint_plan_section(prioritization)
+
     return (
         f"# Observaciones de Calidad - {project_name}\n\n"
         f"Fecha de analisis: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
@@ -441,9 +485,93 @@ def _generate_quality_observations(project_data):
         f"- **Observaciones detectadas:** {len(observations)}\n\n"
         f"## Hallazgos\n\n"
         f"{body}\n\n"
+        f"## Priorizacion Inteligente de Hallazgos\n\n"
+        f"{priority_section}\n\n"
+        f"## Plan de Remediacion por Sprint\n\n"
+        f"{sprint_plan_section}\n\n"
+        f"## Interpretacion funcional por Taskbot\n\n"
+        f"{interpretation_section}\n\n"
         f"---\n"
         f"Documento generado automaticamente por RPA-Doc-Generator.\n"
     )
+
+
+def _generate_priority_findings_section(prioritization):
+    findings = prioritization.get("priority_findings", [])
+    source = prioritization.get("source", "heuristic")
+    confidence = prioritization.get("confidence", "media")
+
+    if not findings:
+        return "No se detectaron hallazgos priorizables."
+
+    lines = [
+        f"- **Fuente de priorizacion:** {source}",
+        f"- **Confianza estimada:** {confidence}",
+        "",
+        "| Severidad | Taskbot | Hallazgo | Por que importa |",
+        "|-----------|---------|----------|------------------|",
+    ]
+
+    for finding in findings:
+        lines.append(
+            f"| {finding.get('severity', 'medio')} | {finding.get('task', 'General')} | "
+            f"{finding.get('title', 'Hallazgo')} | {finding.get('why', 'Sin detalle')} |"
+        )
+
+    return "\n".join(lines)
+
+
+def _generate_sprint_plan_section(prioritization):
+    sprint_plan = prioritization.get("sprint_plan", [])
+    if not sprint_plan:
+        return "No se genero plan de remediacion."
+
+    lines = [
+        "| Prioridad | Accion | Esfuerzo | Impacto | Owner | Taskbots | Criterio de cierre |",
+        "|-----------|--------|----------|---------|-------|----------|--------------------|",
+    ]
+
+    for item in sprint_plan:
+        tasks = item.get("tasks", [])
+        done_criteria = item.get("done_criteria", [])
+        tasks_value = ", ".join(tasks) if tasks else "General"
+        done_criteria_value = "<br>".join(done_criteria) if done_criteria else "Sin criterio definido"
+        lines.append(
+            f"| {item.get('priority', 'P2')} | {item.get('action', 'Accion pendiente')} | "
+            f"{item.get('effort', 'M')} | {item.get('impact', 'Impacto pendiente')} | "
+            f"{item.get('owner', 'dev')} | {tasks_value} | {done_criteria_value} |"
+        )
+
+    return "\n".join(lines)
+
+
+def _generate_task_interpretation_section(tasks, task_descriptions):
+    taskbots = [task for task in tasks if task.get("type") == "taskbot"]
+    if not taskbots:
+        return "No se detectaron taskbots para interpretar."
+
+    lines = []
+    for task in taskbots:
+        task_name = task.get("name", "Taskbot")
+        description = task_descriptions.get(task_name, {})
+        risks = description.get("risks", ["Sin riesgos relevantes inferidos."])
+        recommendations = description.get("recommendations", ["Sin recomendaciones adicionales."])
+
+        lines.append(f"### {task_name}")
+        lines.append("")
+        lines.append(f"- **Perfil AA360 sugerido:** {description.get('task_profile', 'utilitario')}")
+        lines.append(f"- **Que hace:** {description.get('what_it_does', 'No disponible')}")
+        lines.append(f"- **Funcion que cumple:** {description.get('business_function', 'No disponible')}")
+        lines.append(f"- **Criticidad estimada:** {description.get('criticality', 'media')}")
+        lines.append("- **Riesgos detectados:**")
+        lines.extend(f"  - {risk}" for risk in risks)
+        lines.append("- **Mejoras recomendadas:**")
+        lines.extend(f"  - {recommendation}" for recommendation in recommendations)
+        lines.append(f"- **Fuente de analisis:** {description.get('source', 'heuristic')}")
+        lines.append(f"- **Confianza estimada:** {description.get('confidence', 'media')}")
+        lines.append("")
+
+    return "\n".join(lines).rstrip()
 
 
 def generate_quality_file(project_data, output_path):
@@ -507,31 +635,37 @@ def _generate_default_template():
 ## 1. Informacion General
 {overview}
 
-## 2. Estadisticas del Proyecto
+## 2. Resumen Ejecutivo
+{executive_summary}
+
+## 3. Estadisticas del Proyecto
 {statistics}
 
-## 3. Flujo Principal Entre Taskbots
+## 4. Flujo Principal Entre Taskbots
 {flow_visual}
 
-## 4. Contrato de Dependencias
+## 5. Contrato de Dependencias
 {dependency_contracts}
 
-## 5. Inventario de Taskbots
+## 6. Inventario de Taskbots
 {task_inventory}
 
-## 6. Contrato de Variables
+## 7. Contrato de Variables
 {variables_section}
 
-## 7. Credenciales y Vaults
+## 8. Credenciales y Vaults
 {credentials_section}
 
-## 8. Sistemas Externos y Configuracion Tecnica
+## 9. Sistemas Externos y Configuracion Tecnica
 {systems_section}
 
-## 9. Paquetes AA360 Detectados
+## 10. Paquetes AA360 Detectados
 {packages_section}
 
-## 10. Estructura del Proyecto
+## 11. Puntos Criticos del Bot
+{critical_points}
+
+## 12. Estructura del Proyecto
 ```
 {tree}
 ```

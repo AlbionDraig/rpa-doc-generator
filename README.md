@@ -20,15 +20,17 @@ Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de ca
 **Secciones del SDD generado:**
 
 1. Informacion General (nombre, entrypoints, paquetes AA360, sistemas externos)
-2. Estadisticas (nodos, condiciones, bucles, llamadas runTask, errores)
-3. Flujo Principal entre Taskbots (imagen SVG embebida)
-4. Contrato de Dependencias (variables enviadas y recibidas en cada runTask)
-5. Inventario de Taskbots (rol, ruta, descripcion, developer, acciones, paquetes)
-6. Contrato de Variables (tablas input/output/internas por taskbot)
-7. Credenciales y Vaults
-8. Sistemas Externos y Configuracion Tecnica
-9. Paquetes AA360 Detectados
-10. Estructura del Proyecto (arbol filtrado)
+2. Resumen Ejecutivo con IA opcional (vision general del bot para devs)
+3. Estadisticas (nodos, condiciones, bucles, llamadas runTask, errores)
+4. Flujo Principal entre Taskbots (imagen SVG embebida)
+5. Contrato de Dependencias (variables enviadas y recibidas en cada runTask)
+6. Inventario de Taskbots (rol, ruta, descripcion, developer, acciones, paquetes)
+7. Contrato de Variables (tablas input/output/internas por taskbot)
+8. Credenciales y Vaults
+9. Sistemas Externos y Configuracion Tecnica
+10. Paquetes AA360 Detectados
+11. Puntos Criticos del Bot con IA opcional
+12. Estructura del Proyecto (arbol filtrado)
 
 ### `POST /quality/` — Reporte de Calidad
 
@@ -63,6 +65,43 @@ Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de ca
 - Arbol de directorios filtrado (excluye metadata, .jar, imagenes, cache).
 - Sanitizacion de datos sensibles (credenciales, rutas de usuario).
 - Exportacion a Markdown, DOCX y PDF.
+- Interpretacion funcional por taskbot con IA opcional en el reporte de calidad.
+
+---
+
+## IA opcional para calidad por taskbot
+
+El endpoint `POST /quality/` puede incluir una seccion por taskbot con:
+
+- Que hace la tarea segun el analisis
+- Funcion que cumple en el flujo
+- Criticidad estimada
+- Riesgos detectados
+- Mejoras recomendadas
+- Fuente (`ai` o `heuristic`) y confianza estimada
+
+Adicionalmente genera:
+
+- Priorizacion inteligente de hallazgos (bloqueante/alto/medio/bajo)
+- Plan de remediacion por sprint (P1/P2/P3 con esfuerzo S/M/L)
+- Criterio de cierre por accion (Definition of Done)
+
+Si no se configura IA, el sistema usa fallback heuristico local (sin llamadas externas).
+
+Para Groq se usa su endpoint compatible con OpenAI. Si defines `GROQ_API_KEY`, el proyecto prioriza Groq automaticamente.
+
+Variables de entorno:
+
+| Variable | Descripcion | Default |
+|----------|-------------|---------|
+| `AI_QUALITY_ENABLED` | Habilita inferencia con IA (`true/false`) | `false` |
+| `GROQ_API_KEY` | API key de Groq | - |
+| `GROQ_MODEL` | Modelo Groq para la interpretacion | `llama-3.3-70b-versatile` |
+| `GROQ_BASE_URL` | Base URL de Groq compatible con OpenAI | `https://api.groq.com/openai/v1` |
+| `OPENAI_API_KEY` | API key para endpoint compatible con OpenAI | - |
+| `OPENAI_MODEL` | Modelo de chat a utilizar | `gpt-4o-mini` |
+| `OPENAI_BASE_URL` | Base URL del proveedor compatible (`.../v1`) | `https://api.openai.com/v1` |
+| `AI_TIMEOUT_SECONDS` | Timeout por llamada de IA | `25` |
 
 ---
 

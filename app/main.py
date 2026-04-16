@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,8 @@ from app.generator.pdf_generator import generate_sdd_pdf, generate_quality_pdf
 from app.ingestion.extractor import extract_project
 from app.ingestion.uploader import save_file
 from app.parser.project_parser import parse_project
+
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,

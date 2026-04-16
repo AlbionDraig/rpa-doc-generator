@@ -352,6 +352,8 @@ class ParserAndQualityCoverageTests(unittest.TestCase):
         self.assertIn("tiene `try` pero no `catch`", quality_md)
         self.assertIn("ruta de archivo hardcodeada", quality_md)
         self.assertIn("CredentialVault", quality_md)
+        self.assertIn("Priorizacion Inteligente de Hallazgos", quality_md)
+        self.assertIn("Plan de Remediacion por Sprint", quality_md)
 
         flow = {"summary": {"total_edges": 1}}
         sdd_text = sdd_generator.generate_sdd(
@@ -360,6 +362,9 @@ class ParserAndQualityCoverageTests(unittest.TestCase):
             flow,
             "![Flujo principal entre taskbots](flujo_taskbots.svg)",
         )
+        self.assertIn("Resumen Ejecutivo", sdd_text)
+        self.assertIn("Puntos Criticos del Bot", sdd_text)
+        self.assertIn("Perfil AA360 sugerido", sdd_text)
         self.assertIn("Contrato de Dependencias", sdd_text)
         self.assertIn("Lookup [1 in / 1 out]", sdd_text)
 
