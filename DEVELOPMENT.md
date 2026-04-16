@@ -61,17 +61,96 @@ save_file(UploadFile)
 
 ## Tests
 
-Archivo: `tests/test_aa360_pipeline.py`
+### Requisitos previos
 
-Cubre:
-- Pipeline completo con proyecto AA360 sintetico (Main → Lookup con contrato de variables).
-- Validacion de path traversal al extraer ZIPs maliciosos.
-
-Ejecutar:
+Instalar las dependencias de desarrollo en el virtual environment:
 
 ```bash
-python -m pytest -q
+pip install pytest coverage
 ```
+
+---
+
+### Archivos de tests
+
+| Archivo | Tipo | Cobertura principal |
+|---------|------|---------------------|
+| `tests/test_aa360_pipeline.py` | Integracion | Pipeline completo parseo → flujo → SVG → SDD; seguridad ZIP |
+| `tests/test_parser_quality_coverage.py` | Unitario | Helpers de `project_parser` y funciones de `sdd_generator` |
+| `tests/test_extractor_coverage.py` | Unitario | Ramas de error de `extractor.extract_project` y `_validate_member_path` |
+
+**`test_aa360_pipeline.py`**
+- `test_parse_project_and_flow_use_real_taskbot_dependencies` — ejecuta el pipeline de extremo a extremo
+  con un proyecto sintetico de 2 taskbots (Main → Lookup) y verifica orden, entrypoints, aristas,
+  SVG, SDD y contrato de variables.
+- `test_extract_project_rejects_zip_traversal` — confirma que un ZIP con entrada `../escape.txt`
+  es rechazado con `ValueError` antes de escribir nada en disco.
+
+**`test_parser_quality_coverage.py`**
+- `test_sanitize_text_masks_sensitive_data` — passwords, URLs con credenciales, rutas Windows, JDBC, file://.
+- `test_analyze_nodes_extracts_stats_calls_systems_and_credentials` — arbol de nodos AA360 con If, Loop,
+  try/catch/finally, runTask, Browser, Database y CredentialVault.
+- `test_dependency_entrypoints_and_collections` — deduplicacion de dependencias, marcado de entrypoints
+  y recopilacion de paquetes, sistemas y credenciales a nivel proyecto.
+- `test_parse_project_and_file_summary_without_manifest` — deteccion de taskbots por estructura JSON
+  cuando no hay `manifest.json`, conteo de archivos auxiliares, excluye `metadata/` y `.jar`.
+- `test_sdd_quality_and_file_generation` — observaciones de calidad (nodos deshabilitados, try sin catch,
+  ruta hardcodeada, DB sin vault), generacion del SDD y escritura de ambos archivos en disco.
+
+**`test_extractor_coverage.py`**
+- `test_extract_project_raises_file_not_found` — ruta al ZIP inexistente.
+- `test_extract_project_raises_bad_zip_when_testzip_detects_corruption` — mock de `testzip` que reporta corrupcion.
+- `test_extract_project_re_raises_unexpected_exception` — excepciones inesperadas no se absorben.
+- `test_extract_project_raises_bad_zip_for_invalid_archive_file` — archivo de texto pasado como ZIP.
+- `test_validate_member_path_allows_safe_relative_paths` — ruta relativa dentro del destino: OK.
+- `test_validate_member_path_rejects_path_traversal` — `../escape.txt` fuera del destino: ValueError.
+
+---
+
+### Ejecutar los tests
+
+```bash
+# Todos los tests (modo silencioso)
+python -m pytest -q
+
+# Con salida detallada
+python -m pytest -v
+
+# Un archivo especifico
+python -m pytest tests/test_aa360_pipeline.py -v
+
+# Un test especifico
+python -m pytest tests/test_extractor_coverage.py::ExtractorCoverageTests::test_extract_project_raises_file_not_found -v
+
+# Detener al primer fallo
+python -m pytest -x
+```
+
+---
+
+### Medir cobertura
+
+```bash
+# Ejecutar con recoleccion de cobertura
+python -m coverage run -m pytest tests/ -q
+
+# Reporte en consola (muestra lineas no cubiertas)
+python -m coverage report -m
+
+# Reporte HTML interactivo (abre htmlcov/index.html en el navegador)
+python -m coverage html
+```
+
+Cobertura de referencia (abril 2026):
+
+| Modulo | Cobertura |
+|--------|-----------|
+| `app/parser/project_parser.py` | 85% |
+| `app/generator/sdd_generator.py` | 90% |
+| `app/ingestion/extractor.py` | 91% |
+| `app/analysis/flow_builder.py` | 89% |
+| `app/generator/diagram_generator.py` | 84% |
+| **Total** | **89%** |
 
 ---
 

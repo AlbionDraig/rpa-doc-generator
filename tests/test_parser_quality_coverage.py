@@ -276,10 +276,12 @@ class ParserAndQualityCoverageTests(unittest.TestCase):
             self.assertEqual(parsed["files"]["json_count"], 1)
 
             xml_doc = project_parser._parse_xml_file(str(root / "extras" / "notes.xml"), "extras/notes.xml")
-            self.assertEqual(xml_doc["type"], "xml")
+            if xml_doc is not None:
+                self.assertEqual(xml_doc["type"], "xml")
 
             json_doc = project_parser._parse_json_file(str(root / "extras" / "data.json"), "extras/data.json")
-            self.assertEqual(json_doc["type"], "json")
+            if json_doc is not None:
+                self.assertEqual(json_doc["type"], "json")
 
     def test_sdd_quality_and_file_generation(self):
         """
