@@ -3,8 +3,10 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html, get_swagger_ui_oauth2_redirect_html
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.analysis.flow_builder import build_flow
 from app.analysis.tree_builder import build_tree
@@ -26,8 +28,8 @@ app = FastAPI(
     title="RPA Doc Generator",
     description="Generador automatico de documentacion SDD para bots de Automation Anywhere",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc",
+    docs_url=None,
+    redoc_url=None,
 )
 
 app.add_middleware(
@@ -46,6 +48,33 @@ app.add_middleware(
 
 Path("./output").mkdir(exist_ok=True)
 Path("./tmp").mkdir(exist_ok=True)
+Path("./app/static").mkdir(exist_ok=True)
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui_html():
+    return get_swagger_ui_html(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=f"{app.title} - Swagger UI",
+        oauth2_redirect_url=app.swagger_ui_oauth2_redirect_url,
+        swagger_favicon_url="/favicon.ico",
+    )
+
+
+@app.get("/docs/oauth2-redirect", include_in_schema=False)
+async def swagger_ui_redirect():
+    return get_swagger_ui_oauth2_redirect_html()
+
+
+@app.get("/redoc", include_in_schema=False)
+async def redoc_html():
+    return get_redoc_html(
+        openapi_url=app.openapi_url or "/openapi.json",
+        title=f"{app.title} - ReDoc",
+        redoc_favicon_url="/favicon.ico",
+    )
 
 logger.info("=" * 60)
 logger.info("RPA Doc Generator - API iniciada")
@@ -242,6 +271,11 @@ async def health():
         "version": "1.0.0",
         "timestamp": datetime.now().isoformat(),
     }
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("app/static/favicon.ico")
 
 
 @app.get("/")

@@ -15,9 +15,19 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM Crear venv si no existe
+if not exist "venv" (
+    echo Creando entorno virtual...
+    python -m venv venv
+)
+
+REM Activar venv
+echo Activando entorno virtual...
+call venv\Scripts\activate.bat
+
 REM Instalar dependencias si no existen
 echo Verificando dependencias...
-pip list | findstr "fastapi" >nul
+pip show fastapi >nul 2>&1
 if errorlevel 1 (
     echo Instalando dependencias...
     pip install -r requirements.txt

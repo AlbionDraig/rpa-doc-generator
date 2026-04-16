@@ -13,9 +13,19 @@ if ! command -v python3 &> /dev/null; then
     exit 1
 fi
 
+# Crear venv si no existe
+if [ ! -d "venv" ]; then
+    echo "Creando entorno virtual..."
+    python3 -m venv venv
+fi
+
+# Activar venv
+echo "Activando entorno virtual..."
+source venv/bin/activate
+
 # Instalar dependencias si no existen
 echo "Verificando dependencias..."
-pip list | grep -q fastapi
+pip show fastapi > /dev/null 2>&1
 if [ $? -ne 0 ]; then
     echo "Instalando dependencias..."
     pip install -r requirements.txt
