@@ -188,6 +188,20 @@ def _fix_pre_newlines(html):
     return re.sub(r"<pre><code>(.*?)</code></pre>", _replace_newlines, html, flags=re.DOTALL)
 
 
+def _fix_heading_anchors(html):
+    """Convert heading id attributes to <a name> anchors for xhtml2pdf internal links."""
+    def _add_anchor(match):
+        tag = match.group(1)
+        hid = match.group(2)
+        content = match.group(3)
+        return f'<{tag}><a name="{hid}"></a>{content}</{tag}>'
+    return re.sub(
+        r'<(h[1-6])\s+id="([^"]+)">(.*?)</\1>',
+        _add_anchor,
+        html,
+    )
+
+
 def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_image_path=None):
     """Genera un PDF estilizado a partir del contenido Markdown del SDD."""
     try:
@@ -197,6 +211,7 @@ def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_imag
             extensions=["tables", "fenced_code", "toc", "sane_lists"],
         )
         html_body = _fix_pre_newlines(html_body)
+        html_body = _fix_heading_anchors(html_body)
 
         # Replace the relative SVG img tag with a base64-encoded PNG
         if flow_image_path and Path(flow_image_path).exists():
@@ -236,10 +251,10 @@ def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_imag
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_file, "wb") as pdf_file:
-            pisa_status = pisa.CreatePDF(full_html, dest=pdf_file, encoding="utf-8")
+            pisa_status = pisa.CreatePDF(full_html, dest=pdf_file, encoding="utf-8")  # type: ignore[union-attr]
 
-        if pisa_status.err:
-            logger.error("Errores generando PDF SDD: %s", pisa_status.err)
+        if pisa_status.err:  # type: ignore[union-attr]
+            logger.error("Errores generando PDF SDD: %s", pisa_status.err)  # type: ignore[union-attr]
 
         logger.info("SDD PDF guardado en: %s", output_file)
         return str(output_file)
@@ -278,10 +293,10 @@ def generate_quality_pdf(md_content, output_path, project_name="Proyecto"):
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
         with open(output_file, "wb") as pdf_file:
-            pisa_status = pisa.CreatePDF(full_html, dest=pdf_file, encoding="utf-8")
+            pisa_status = pisa.CreatePDF(full_html, dest=pdf_file, encoding="utf-8")  # type: ignore[union-attr]
 
-        if pisa_status.err:
-            logger.error("Errores generando PDF calidad: %s", pisa_status.err)
+        if pisa_status.err:  # type: ignore[union-attr]
+            logger.error("Errores generando PDF calidad: %s", pisa_status.err)  # type: ignore[union-attr]
 
         logger.info("Calidad PDF guardado en: %s", output_file)
         return str(output_file)
