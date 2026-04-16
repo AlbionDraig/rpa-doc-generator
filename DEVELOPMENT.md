@@ -7,6 +7,28 @@ Para instalacion, ejecucion y uso de la API ver [README.md](README.md).
 
 ## Arquitectura de modulos
 
+La aplicacion sigue un monolito modular con separacion por capas:
+
+- `app/main.py` actua como bootstrap (configuracion global, middleware, mount de static y routers).
+- `app/api/` define contratos HTTP (endpoints, validacion y mapeo de errores HTTP).
+- `app/application/` concentra orquestacion de casos de uso y settings de runtime.
+- `app/ingestion`, `app/parser`, `app/analysis`, `app/generator` mantienen las capacidades tecnicas del dominio AA360.
+
+### `app/api/`
+
+- `routes/generate.py` — endpoint `POST /generate/`; delega la orquestacion al caso de uso `run_generate_sdd`.
+- `routes/quality.py` — endpoint `POST /quality/`; delega a `run_generate_quality`.
+- `routes/download.py` — endpoint `GET /download/{session_id}/{file_type}`; delega resolucion de artefacto.
+- `routes/system.py` — endpoints `GET /` y `GET /health`.
+- `deps.py` — acceso centralizado a `settings` y `logger` via `request.app.state`.
+
+### `app/application/`
+
+- `settings.py` — modelo `AppSettings` para cargar variables de entorno y evitar dispersion de configuracion.
+- `use_cases/generate_sdd.py` — pipeline SDD (ingestion, parseo, flujo, arbol, SVG, Markdown, DOCX, PDF).
+- `use_cases/generate_quality.py` — pipeline de reporte de calidad (Markdown, DOCX, PDF).
+- `use_cases/download_artifact.py` — mapeo de `file_type` a artefacto descargable.
+
 ### `app/ingestion/`
 
 - `uploader.py` — Recibe el `UploadFile` de FastAPI, valida extension `.zip`, controla tamano maximo (`MAX_FILE_SIZE`) y lo guarda en `TMP_DIR`.
@@ -35,11 +57,11 @@ Para instalacion, ejecucion y uso de la API ver [README.md](README.md).
 
 ### `app/main.py`
 
-Orquesta el pipeline en cada endpoint:
-1. `save_file` → `extract_project` → `parse_project`
-2. `build_flow` + `build_tree`
-3. `generate_flow_svg` + `convert_svg_to_png`
-4. `generate_sdd_file` + `generate_sdd_word` + `generate_sdd_pdf`
+Bootstrap de aplicacion:
+1. Carga env y construye `AppSettings`.
+2. Configura FastAPI, CORS y rutas de docs.
+3. Registra `settings`/`logger` en `app.state`.
+4. Incluye routers de `app/api/routes`.
 
 Configuracion de runtime via `.env`:
 - host/puerto (`APP_HOST`, `APP_PORT`)
@@ -52,16 +74,16 @@ Configuracion de runtime via `.env`:
 ## Pipeline tecnico detallado
 
 ```
-save_file(UploadFile)
-    └── extract_project(zip_path)         # extrae en tmp/, valida path traversal
-        └── parse_project(project_path)   # retorna project_data dict
-            ├── build_flow(tasks)          # nodos/aristas del grafo
-            ├── build_tree(project_path)   # arbol texto filtrado
-            ├── generate_flow_svg(flow)    # SVG autocontenido
-            ├── convert_svg_to_png(...)    # PNG intermedio para DOCX/PDF
-            ├── generate_sdd_file(...)     # SDD_*.md
-            ├── generate_sdd_word(...)     # SDD_*.docx
-            └── generate_sdd_pdf(...)      # SDD_*.pdf
+HTTP Router (`app/api/routes/*.py`)
+  └── Use Case (`app/application/use_cases/*.py`)
+    ├── save_file(UploadFile)
+    ├── extract_project(zip_path)         # extrae en tmp/, valida path traversal
+    ├── parse_project(project_path)       # retorna project_data dict
+    ├── build_flow(tasks) / build_tree(project_path)
+    ├── generate_flow_svg(flow) / convert_svg_to_png(...)
+    ├── generate_sdd_file(...) / generate_quality_file(...)
+    ├── generate_*_word(...)
+    └── generate_*_pdf(...)
 ```
 
 ---
@@ -82,10 +104,60 @@ pip install pytest coverage
 
 | Archivo | Tipo | Cobertura principal |
 |---------|------|---------------------|
+| `tests/test_api_structure.py` | Unitario/API smoke | Estabilidad de endpoints principales y wiring de routers |
+| `tests/test_routes_error_mapping.py` | Unitario/API | Mapeo de errores HTTP (400/404/500) y rutas sistema/download |
+| `tests/test_use_cases_coverage.py` | Unitario/Application | Orquestacion de casos de uso SDD/Calidad y resolucion de artefactos |
+| `tests/test_uploader_tree_settings_coverage.py` | Unitario | Guardado de ZIP, arbol de directorios y parsing de settings/env |
+| `tests/test_export_generators_coverage.py` | Unitario/Export | Generacion DOCX/PDF, helpers de exportacion y observaciones de calidad |
+| `tests/test_flow_ai_edge_coverage.py` | Unitario/Analysis | Ramas de flujo (ciclos/dedupe) y ramas AI/fallback/normalizacion |
+| `tests/test_diagram_main_coverage.py` | Unitario/API+Diagram | Helpers de diagrama SVG/PNG, docs/redoc y bootstrap de app |
+| `tests/test_parser_additional_coverage.py` | Unitario/Parser | Ramas internas adicionales del parser (discovery, helpers, parse fallbacks) |
 | `tests/test_aa360_pipeline.py` | Integracion | Pipeline completo parseo → flujo → SVG → SDD; seguridad ZIP |
 | `tests/test_parser_quality_coverage.py` | Unitario | Helpers de `project_parser` y funciones de `sdd_generator` |
 | `tests/test_extractor_coverage.py` | Unitario | Ramas de error de `extractor.extract_project` y `_validate_member_path` |
 | `tests/test_task_ai_describer.py` | Unitario | Prompts/contexto AA360, fallback IA, priorizacion y secciones IA en reportes |
+
+**`test_api_structure.py`**
+- `test_system_endpoints_are_available` — valida `GET /` y `GET /health`.
+- `test_required_upload_endpoints_exist` — valida presencia de `POST /generate/` y `POST /quality/`.
+- `test_download_route_exists` — valida presencia de `GET /download/{session_id}/{file_type}`.
+
+**`test_routes_error_mapping.py`**
+- valida mapeo de excepciones en `generate` y `quality` a codigos HTTP `400/404/500`.
+- valida ramas de `download` (tipo invalido, archivo ausente, excepcion inesperada y exito).
+- valida payload de `GET /` y `GET /health`.
+
+**`test_use_cases_coverage.py`**
+- valida flujo exitoso de `run_generate_sdd`, incluyendo eliminacion del PNG intermedio.
+- valida flujo exitoso de `run_generate_quality`, incluyendo lectura del markdown generado para PDF.
+- valida resolucion de artefactos en `download_artifact`.
+
+**`test_uploader_tree_settings_coverage.py`**
+- valida `save_file` para extension invalida, archivo vacio, limite de tamano y ruta exitosa.
+- valida `build_tree`, `should_exclude`, `_detect_file_kind` y `_format_size`.
+- valida parsing de `AppSettings` y fallback de `_env_int`.
+
+**`test_export_generators_coverage.py`**
+- valida `generate_sdd_word` y `generate_quality_word` con fixtures reales de proyecto AA360.
+- valida helpers de Word (`_format_size`, `_describe_error_handling`, `_unique_preserve`, `_collect_quality_observations`).
+- valida helpers PDF (`_sanitize_tree_for_pdf`, `_fix_pre_newlines`, `_fix_heading_anchors`, `_escape_html`).
+- valida `generate_sdd_pdf` y `generate_quality_pdf` con `pisa.CreatePDF` mockeado y rutas de error.
+
+**`test_flow_ai_edge_coverage.py`**
+- cubre ramas de `flow_builder`: lista vacia, deduplicacion de aristas, dependencias desconocidas y fallback por ciclo.
+- cubre ramas de `task_ai_describer`: parseo JSON, normalizadores, fallback por provider/URL, caminos AI en SDD/priorizacion.
+- cubre helpers heuristicas (`_safe_timeout`, severidades, extraccion de task name, top tasks).
+
+**`test_diagram_main_coverage.py`**
+- cubre helpers de `diagram_generator` (`_blend_color`, `_wrap_text`, `_build_edge_label`, `_empty_svg`).
+- cubre `generate_flow_svg` (flujo vacio y flujo con nodos/aristas).
+- cubre `convert_svg_to_png` en ramas de exito, parseo nulo y excepcion.
+- cubre endpoints de docs/redoc y ejecucion de `create_app` en `main`.
+
+**`test_parser_additional_coverage.py`**
+- cubre ramas extra del parser: manifest invalido, discovery fallback por estructura taskbot.
+- cubre helpers de parse y sanitizacion (`_summarize_node`, `_extract_task_call`, `_flatten_attribute_values`, `_extract_systems_from_node`, `_extract_credential_from_node`).
+- cubre rutas de error en parse XML/JSON y excepciones controladas en extractores auxiliares.
 
 **`test_aa360_pipeline.py`**
 - `test_parse_project_and_flow_use_real_taskbot_dependencies` — ejecuta el pipeline de extremo a extremo
@@ -154,16 +226,29 @@ python -m coverage report -m
 python -m coverage html
 ```
 
-Cobertura de referencia (abril 2026):
+Cobertura de referencia (abril 2026, despues de ampliar tests de API/Application/Export/Analysis/Parser):
 
 | Modulo | Cobertura |
 |--------|-----------|
-| `app/parser/project_parser.py` | 85% |
-| `app/generator/sdd_generator.py` | 90% |
-| `app/ingestion/extractor.py` | 91% |
-| `app/analysis/flow_builder.py` | 89% |
-| `app/generator/diagram_generator.py` | 84% |
-| **Total** | **89%** |
+| `app/api/routes/generate.py` | 100% |
+| `app/api/routes/quality.py` | 100% |
+| `app/api/routes/download.py` | 100% |
+| `app/api/routes/system.py` | 100% |
+| `app/application/use_cases/generate_sdd.py` | 100% |
+| `app/application/use_cases/generate_quality.py` | 100% |
+| `app/application/use_cases/download_artifact.py` | 100% |
+| `app/ingestion/uploader.py` | 100% |
+| `app/analysis/flow_builder.py` | 100% |
+| `app/analysis/task_ai_describer.py` | 95% |
+| `app/analysis/tree_builder.py` | 97% |
+| `app/main.py` | 98% |
+| `app/generator/pdf_generator.py` | 99% |
+| `app/generator/diagram_generator.py` | 99% |
+| `app/generator/word_generator.py` | 94% |
+| `app/parser/project_parser.py` | 91% |
+| `app/generator/sdd_generator.py` | 91% |
+| `app/ingestion/extractor.py` | 92% |
+| **Total** | **95%** |
 
 ---
 
@@ -183,5 +268,5 @@ Cobertura de referencia (abril 2026):
 | Nueva heuristica de calidad | `sdd_generator._generate_quality_observations` |
 | Nuevo detector de sistemas externos | `project_parser._extract_systems_from_node` |
 | Nuevo detector de credenciales | `project_parser._extract_credential_from_node` |
-| Nuevo formato de exportacion | Nuevo archivo en `app/generator/` + endpoint en `main.py` |
-| Nuevo tipo de descarga | `file_map` en `main.download_file` |
+| Nuevo formato de exportacion | Nuevo adapter en `app/generator/` + use case en `app/application/use_cases/` + endpoint en `app/api/routes/` |
+| Nuevo tipo de descarga | Resolver en `app/application/use_cases/download_artifact.py` |

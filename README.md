@@ -312,7 +312,20 @@ Origenes permitidos por defecto:
 ```text
 rpa-doc-generator/
 ├── app/
-│   ├── main.py            # API FastAPI (endpoints)
+│   ├── main.py            # Bootstrap FastAPI (config, middleware, routers, docs)
+│   ├── api/
+│   │   ├── deps.py        # Dependencias compartidas (settings/logger)
+│   │   └── routes/
+│   │       ├── generate.py
+│   │       ├── quality.py
+│   │       ├── download.py
+│   │       └── system.py
+│   ├── application/
+│   │   ├── settings.py    # Carga tipada de variables de entorno
+│   │   └── use_cases/
+│   │       ├── generate_sdd.py
+│   │       ├── generate_quality.py
+│   │       └── download_artifact.py
 │   ├── ingestion/
 │   │   ├── uploader.py    # Validacion y guardado del ZIP
 │   │   └── extractor.py   # Extraccion segura del ZIP
@@ -331,7 +344,18 @@ rpa-doc-generator/
 │   │   └── sdd_template.md    # Plantilla Markdown del SDD
 │   └── static/
 ├── tests/
-│   └── test_aa360_pipeline.py
+│   ├── test_api_structure.py
+│   ├── test_routes_error_mapping.py
+│   ├── test_use_cases_coverage.py
+│   ├── test_uploader_tree_settings_coverage.py
+│   ├── test_export_generators_coverage.py
+│   ├── test_flow_ai_edge_coverage.py
+│   ├── test_diagram_main_coverage.py
+│   ├── test_parser_additional_coverage.py
+│   ├── test_aa360_pipeline.py
+│   ├── test_parser_quality_coverage.py
+│   ├── test_extractor_coverage.py
+│   └── test_task_ai_describer.py
 ├── output/                # Artefactos generados por sesion
 ├── tmp/                   # ZIPs extraidos temporalmente
 ├── requirements.txt
@@ -354,12 +378,12 @@ rpa-doc-generator/
 ## Flujo interno de procesamiento
 
 ```
-1. Validacion y guardado del ZIP
-2. Extraccion en tmp/
-3. Parseo de manifest.json + deteccion de taskbots
-4. Construccion del grafo de dependencias
-5. Generacion del arbol de directorios filtrado
-6. Render del flujo SVG (+ conversion PNG intermedia para DOCX/PDF)
+1. Router HTTP recibe request (`app/api/routes/*`)
+2. Caso de uso de aplicacion orquesta pipeline (`app/application/use_cases/*`)
+3. Ingestion: validacion y guardado ZIP
+4. Extraccion en tmp/
+5. Parseo de manifest.json + deteccion de taskbots
+6. Construccion de flujo/arbol
 7. Compilacion de SDD o Calidad en Markdown
 8. Exportacion a DOCX y PDF
 9. Entrega de rutas en la respuesta JSON

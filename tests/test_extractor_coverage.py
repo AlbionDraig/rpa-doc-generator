@@ -73,6 +73,19 @@ class ExtractorCoverageTests(unittest.TestCase):
             with self.assertRaises(zipfile.BadZipFile):
                 extractor.extract_project(zip_path)
 
+    def test_extract_project_raises_when_uncompressed_size_exceeds_limit(self):
+        """
+        Lanza ValueError cuando el total descomprimido supera MAX_EXTRACTION_SIZE.
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            zip_path = Path(tmp_dir) / "project.zip"
+            with zipfile.ZipFile(zip_path, "w") as zip_file:
+                zip_file.writestr("big.txt", "1234567890")
+
+            with patch("app.ingestion.extractor.MAX_EXTRACTION_SIZE", 5):
+                with self.assertRaises(ValueError):
+                    extractor.extract_project(zip_path)
+
     def test_validate_member_path_allows_safe_relative_paths(self):
         """
         _validate_member_path no lanza nada para rutas relativas seguras.
