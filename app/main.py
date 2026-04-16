@@ -1,4 +1,5 @@
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -21,39 +22,72 @@ from app.parser.project_parser import parse_project
 
 load_dotenv()
 
+
+def _env_bool(name, default):
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name, default):
+    try:
+        return int(os.getenv(name, default))
+    except (TypeError, ValueError):
+        return int(default)
+
+
+def _env_csv(name, default):
+    raw_value = os.getenv(name, default)
+    return [item.strip() for item in raw_value.split(",") if item.strip()]
+
+
+APP_TITLE = os.getenv("APP_TITLE", "RPA Doc Generator")
+APP_VERSION = os.getenv("APP_VERSION", "1.0.0")
+APP_DESCRIPTION = os.getenv(
+    "APP_DESCRIPTION",
+    "Generador automatico de documentacion SDD para bots de Automation Anywhere",
+)
+APP_HOST = os.getenv("APP_HOST", "0.0.0.0")
+APP_PORT = _env_int("APP_PORT", "8000")
+APP_LOG_LEVEL = os.getenv("APP_LOG_LEVEL", "info").lower()
+APP_ACCESS_LOG = _env_bool("APP_ACCESS_LOG", "true")
+
+OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./output"))
+TMP_DIR = Path(os.getenv("TMP_DIR", "./tmp"))
+STATIC_DIR = Path(os.getenv("STATIC_DIR", "./app/static"))
+
+CORS_ORIGINS = _env_csv(
+    "CORS_ORIGINS",
+    "http://localhost,http://localhost:3000,http://localhost:8000,http://127.0.0.1,http://127.0.0.1:3000",
+)
+
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", f"http://localhost:{APP_PORT}").rstrip("/")
+
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, APP_LOG_LEVEL.upper(), logging.INFO),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="RPA Doc Generator",
-    description="Generador automatico de documentacion SDD para bots de Automation Anywhere",
-    version="1.0.0",
+    title=APP_TITLE,
+    description=APP_DESCRIPTION,
+    version=APP_VERSION,
     docs_url=None,
     redoc_url=None,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost",
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1",
-        "http://127.0.0.1:3000",
-    ],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-Path("./output").mkdir(exist_ok=True)
-Path("./tmp").mkdir(exist_ok=True)
-Path("./app/static").mkdir(exist_ok=True)
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+TMP_DIR.mkdir(parents=True, exist_ok=True)
+STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 @app.get("/docs", include_in_schema=False)
@@ -90,7 +124,7 @@ async def generate(file: UploadFile):
     Genera documentacion SDD para un bot de Automation Anywhere.
     """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    output_dir = Path("./output") / session_id
+    output_dir = OUTPUT_DIR / session_id
 
     try:
         logger.info("[START] Procesando archivo: %s - Sesion: %s", file.filename, session_id)
@@ -177,7 +211,7 @@ async def quality(file: UploadFile):
     Genera un reporte de observaciones de calidad para un bot de Automation Anywhere.
     """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    output_dir = Path("./output") / session_id
+    output_dir = OUTPUT_DIR / session_id
 
     try:
         logger.info("[QUALITY-START] Procesando archivo: %s - Sesion: %s", file.filename, session_id)
@@ -228,7 +262,7 @@ async def download_file(session_id: str, file_type: str):
     """
     Descarga un archivo generado de una sesion.
     """
-    output_dir = Path("./output") / session_id
+    output_dir = OUTPUT_DIR / session_id
 
     file_map = {
         "sdd": lambda: list(output_dir.glob("SDD_*.md"))[0] if list(output_dir.glob("SDD_*.md")) else None,
@@ -270,8 +304,8 @@ async def health():
     """
     return {
         "status": "healthy",
-        "app": "RPA Doc Generator",
-        "version": "1.0.0",
+        "app": APP_TITLE,
+        "version": APP_VERSION,
         "timestamp": datetime.now().isoformat(),
     }
 
@@ -287,11 +321,11 @@ async def root():
     Pagina raiz de la API.
     """
     return {
-        "message": "RPA Doc Generator API",
-        "version": "1.0.0",
-        "docs": "http://localhost:8000/docs",
-        "redoc": "http://localhost:8000/redoc",
-        "health": "http://localhost:8000/health",
+        "message": f"{APP_TITLE} API",
+        "version": APP_VERSION,
+        "docs": f"{PUBLIC_BASE_URL}/docs",
+        "redoc": f"{PUBLIC_BASE_URL}/redoc",
+        "health": f"{PUBLIC_BASE_URL}/health",
     }
 
 
@@ -300,8 +334,8 @@ if __name__ == "__main__":
 
     uvicorn.run(
         app,
-        host="0.0.0.0",
-        port=8000,
-        log_level="info",
-        access_log=True,
+        host=APP_HOST,
+        port=APP_PORT,
+        log_level=APP_LOG_LEVEL,
+        access_log=APP_ACCESS_LOG,
     )

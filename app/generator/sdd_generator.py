@@ -18,7 +18,6 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
     try:
         template = _load_template()
         tasks = project_data.get("tasks", [])
-        metadata = project_data.get("metadata", {})
         sdd_ai_insights = build_sdd_ai_insights(project_data, flow)
 
         rendered = template.format(

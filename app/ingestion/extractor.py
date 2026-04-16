@@ -1,8 +1,11 @@
 import logging
+import os
 import zipfile
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+MAX_EXTRACTION_SIZE = int(os.getenv("MAX_EXTRACTION_SIZE", str(1024 * 1024 * 1024)))
 
 
 def extract_project(zip_path):
@@ -24,8 +27,14 @@ def extract_project(zip_path):
                 logger.error("ZIP corrompido: %s", bad_file)
                 raise zipfile.BadZipFile(f"El archivo ZIP esta corrompido: {bad_file}")
 
+            total_uncompressed_size = 0
             for member in zip_ref.infolist():
                 _validate_member_path(member.filename, extract_path)
+                total_uncompressed_size += max(0, int(member.file_size or 0))
+                if total_uncompressed_size > MAX_EXTRACTION_SIZE:
+                    raise ValueError(
+                        f"El contenido extraido supera el limite permitido ({MAX_EXTRACTION_SIZE} bytes)"
+                    )
                 zip_ref.extract(member, extract_path)
 
         logger.info("Proyecto extraido exitosamente en: %s", extract_path)

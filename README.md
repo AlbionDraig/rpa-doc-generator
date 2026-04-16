@@ -94,6 +94,21 @@ Variables de entorno:
 
 | Variable | Descripcion | Default |
 |----------|-------------|---------|
+| `APP_TITLE` | Titulo de la API | `RPA Doc Generator` |
+| `APP_VERSION` | Version de la API | `1.0.0` |
+| `APP_DESCRIPTION` | Descripcion de la API | `Generador automatico...` |
+| `APP_HOST` | Host de arranque uvicorn | `0.0.0.0` |
+| `APP_PORT` | Puerto de arranque uvicorn | `8000` |
+| `APP_LOG_LEVEL` | Nivel de log uvicorn/app (`debug/info/warning/error`) | `info` |
+| `APP_ACCESS_LOG` | Habilita access log de uvicorn | `true` |
+| `PUBLIC_BASE_URL` | URL base publicada en endpoint `/` | `http://localhost:8000` |
+| `CORS_ORIGINS` | Lista de origenes CORS separada por comas | `http://localhost,...` |
+| `OUTPUT_DIR` | Directorio de salida de artefactos | `./output` |
+| `TMP_DIR` | Directorio temporal para uploads y extraccion | `./tmp` |
+| `STATIC_DIR` | Directorio de archivos estaticos | `./app/static` |
+| `UPLOAD_CHUNK_SIZE` | Tamano de lectura por bloque al subir ZIP (bytes) | `1048576` |
+| `MAX_FILE_SIZE` | Tamano maximo de ZIP recibido (bytes) | `524288000` |
+| `MAX_EXTRACTION_SIZE` | Tamano maximo total descomprimido (bytes) | `1073741824` |
 | `AI_QUALITY_ENABLED` | Habilita inferencia con IA (`true/false`) | `false` |
 | `GROQ_API_KEY` | API key de Groq | - |
 | `GROQ_MODEL` | Modelo Groq para la interpretacion | `llama-3.3-70b-versatile` |

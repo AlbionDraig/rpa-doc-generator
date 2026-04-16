@@ -277,10 +277,6 @@ def _empty_svg(message):
     )
 
 
-def _escape_label(value):
-    return str(value).replace('"', "'").replace("\r", " ").replace("\n", " ").strip()
-
-
 def convert_svg_to_png(svg_path, png_path, scale=3.0):
     """Convierte un archivo SVG a PNG usando svglib + reportlab."""
     try:
