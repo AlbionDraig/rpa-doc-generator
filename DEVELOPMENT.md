@@ -1,289 +1,95 @@
-# RPA Doc Generator - Guía de Desarrollo
+# Development Guide
 
-## 🔧 Configuración del Entorno de Desarrollo
-
-### Requisitos
-- Python 3.8+
-- pip
-- Git
-- Editor de código (VS Code recomendado)
-
-### Setup Inicial
-
-```bash
-# 1. Clonar repositorio
-git clone <url>
-cd rpa-doc-generator
-
-# 2. Crear virtual environment
-python -m venv venv
-
-# 3. Activar virtual environment
-# Windows:
-venv\Scripts\activate
-# Linux/Mac:
-source venv/bin/activate
-
-# 4. Instalar dependencias
-pip install -r requirements.txt
-
-# 5. Instalar dependencias de desarrollo (opcional)
-pip install pytest pytest-cov black flake8 mypy
-```
+Guia tecnica interna de RPA Doc Generator.
+Para instalacion, ejecucion y uso de la API ver [README.md](README.md).
 
 ---
 
-## 📝 Estructura de Módulos
+## Arquitectura de modulos
 
 ### `app/ingestion/`
-**Responsabilidad:** Carga y validación de archivos
 
-- `uploader.py` - Guardar archivos ZIP subidos
-- `extractor.py` - Descompresión y validación de ZIP
-
-**Agregar nueva funcionalidad:**
-```python
-# Ejemplo: validar tamaño de archivo
-def validate_file_size(file, max_size):
-    content = file.file.read()
-    if len(content) > max_size:
-        raise ValueError("Archivo demasiado grande")
-    return len(content)
-```
+- `uploader.py` — Recibe el `UploadFile` de FastAPI, valida extension y lo guarda en `tmp/`.
+- `extractor.py` — Descomprime el ZIP de forma segura (previene path traversal). Retorna la ruta de la carpeta extraida.
 
 ### `app/parser/`
-**Responsabilidad:** Análisis de estructura del proyecto
 
-- `project_parser.py` - Parseo de XML/JSON y extracción de metadatos
-
-**Agregar nueva funcionalidad:**
-```python
-# Ejemplo: extraer variables del proyecto
-def extract_variables(project_path):
-    variables = []
-    for xml_file in find_xml_files(project_path):
-        # Procesar y extraer variables
-        pass
-    return variables
-```
+- `project_parser.py` — Punto de entrada: `parse_project(path)`.
+  - Carga `manifest.json` para descubrir taskbots por `contentType`.
+  - Fallback: escanea el directorio buscando JSONs con las claves `nodes`, `variables`, `packages`, `properties`.
+  - Extrae por taskbot: variables input/output/internas, nodos AA360, llamadas `runTask`, credenciales, sistemas externos, comentarios de cabecera (developer, fecha, descripcion).
+  - Retorna un dict estructurado con `tasks`, `packages`, `systems`, `credentials`, `metadata`, `files`.
 
 ### `app/analysis/`
-**Responsabilidad:** Análisis de flujos y estructura
 
-- `flow_builder.py` - Construcción del flujo de procesos
-- `tree_builder.py` - Generación del árbol visual
-
-**Agregar nueva funcionalidad:**
-```python
-# Ejemplo: detectar bucles en el flujo
-def detect_loops(flow):
-    loops = []
-    # Análisis de ciclos
-    return loops
-```
+- `flow_builder.py` — Construye nodos y aristas a partir de las dependencias `scannedDependencies` del manifest y de las llamadas `runTask` detectadas. Retorna `{nodes, edges, summary}`.
+- `tree_builder.py` — Genera un arbol de directorios como texto, filtrando carpetas `metadata`, archivos `.jar`, imagenes, cache y archivos ocultos.
 
 ### `app/generator/`
-**Responsabilidad:** Generación de documentos y diagramas
 
-- `diagram_generator.py` - Crear diagramas Mermaid
-- `sdd_generator.py` - Compilar documento SDD
+- `sdd_generator.py` — Rellena `sdd_template.md` con las secciones del SDD. Tambien contiene `generate_quality_file` que produce el reporte de observaciones de calidad.
+- `diagram_generator.py` — Genera el SVG autocontenido del flujo con layout automatico por niveles (BFS desde entrypoints). Tambien convierte el SVG a PNG via `svglib`+`reportlab` para embeber en DOCX/PDF.
+- `word_generator.py` — Exporta SDD y Calidad a `.docx` via `python-docx`.
+- `pdf_generator.py` — Exporta SDD y Calidad a `.pdf` via `reportlab`.
 
-**Agregar nueva funcionalidad:**
-```python
-# Ejemplo: generar PDF desde MD
-def generate_pdf(markdown_content, output_path):
-    # Usar pandoc o similar
-    pass
+### `app/main.py`
+
+Orquesta el pipeline en cada endpoint:
+1. `save_file` → `extract_project` → `parse_project`
+2. `build_flow` + `build_tree`
+3. `generate_flow_svg` + `convert_svg_to_png`
+4. `generate_sdd_file` + `generate_sdd_word` + `generate_sdd_pdf`
+
+---
+
+## Pipeline tecnico detallado
+
+```
+save_file(UploadFile)
+    └── extract_project(zip_path)         # extrae en tmp/, valida path traversal
+        └── parse_project(project_path)   # retorna project_data dict
+            ├── build_flow(tasks)          # nodos/aristas del grafo
+            ├── build_tree(project_path)   # arbol texto filtrado
+            ├── generate_flow_svg(flow)    # SVG autocontenido
+            ├── convert_svg_to_png(...)    # PNG intermedio para DOCX/PDF
+            ├── generate_sdd_file(...)     # SDD_*.md
+            ├── generate_sdd_word(...)     # SDD_*.docx
+            └── generate_sdd_pdf(...)      # SDD_*.pdf
 ```
 
 ---
 
-## 🧪 Testing
+## Tests
 
-### Estructura de Tests
+Archivo: `tests/test_aa360_pipeline.py`
 
-```
-tests/
-├── test_ingestion.py
-├── test_parser.py
-├── test_analysis.py
-├── test_generator.py
-└── test_api.py
-```
+Cubre:
+- Pipeline completo con proyecto AA360 sintetico (Main → Lookup con contrato de variables).
+- Validacion de path traversal al extraer ZIPs maliciosos.
 
-### Ejemplo de Test
-
-```python
-import pytest
-from app.ingestion.extractor import extract_project
-
-def test_extract_valid_zip():
-    # Arrange
-    test_zip = "tests/fixtures/test_bot.zip"
-    
-    # Act
-    result = extract_project(test_zip)
-    
-    # Assert
-    assert result is not None
-    assert os.path.isdir(result)
-```
-
-### Ejecutar Tests
+Ejecutar:
 
 ```bash
-# Todos los tests
-pytest
-
-# Con cobertura
-pytest --cov=app
-
-# Tests específicos
-pytest tests/test_parser.py -v
+python -m pytest -q
 ```
 
 ---
 
-## 📚 Mejoras Sugeridas
+## Convenciones
 
-### Corto Plazo (Sprint 1)
-- [ ] Agregar tests unitarios
-- [ ] Validación de esquema XML
-- [ ] Caché de proyectos procesados
-- [ ] Límite de tasa (rate limiting)
-
-### Mediano Plazo (Sprint 2-3)
-- [ ] Generación de PDF desde SDD
-- [ ] Interfaz web (frontend)
-- [ ] Autenticación y autorización
-- [ ] Base de datos para historial
-- [ ] Búsqueda en documentos
-
-### Largo Plazo (Sprint 4+)
-- [ ] Exportación a Azure Devops
-- [ ] Integración con Git
-- [ ] Versionado de documentos
-- [ ] Colaboración en tiempo real
-- [ ] Webhooks para automatización
+- Propagar errores de validacion con `ValueError` y mensaje claro; FastAPI los captura como `400`.
+- No loguear valores de credenciales, tokens ni rutas de usuario.
+- Nombres de secciones y campos en los documentos generados en espanol (consistencia con clientes).
+- Mantener funciones de generacion puras: reciben dicts, retornan strings.
 
 ---
 
-## 🔍 Debugging
+## Puntos de extension
 
-### Ver Logs Detallados
-```python
-import logging
-
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-```
-
-### Print Statements
-```python
-# Útil para debugging rápido
-print(f"DEBUG: variable = {variable}")
-```
-
-### Usar el Debugger de Python
-```python
-import pdb; pdb.set_trace()  # Se pausará aquí
-
-# O con VS Code:
-# Agregar breakpoint en el código y F5
-```
-
----
-
-## 📋 Convenciones de Código
-
-### Nombrado
-```python
-# ✓ Bueno
-def generate_sdd_document(project_data):
-    pass
-
-# ✗ Evitar
-def gen_sdd(d):
-    pass
-```
-
-### Docstrings
-```python
-def extract_project(zip_path):
-    """
-    Extrae el contenido del ZIP del bot.
-    
-    Args:
-        zip_path (str): Ruta del archivo ZIP
-        
-    Returns:
-        str: Ruta de la carpeta extraída
-        
-    Raises:
-        FileNotFoundError: Si el ZIP no existe
-        zipfile.BadZipFile: Si el ZIP está corrompido
-    """
-    pass
-```
-
-### Type Hints (Python 3.8+)
-```python
-from typing import Dict, List, Optional
-
-def parse_project(path: str) -> Dict[str, any]:
-    """Parse project information."""
-    pass
-```
-
----
-
-## 🚀 Deployment
-
-### Producción con Docker
-
-```dockerfile
-FROM python:3.9
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-### Deployment en Heroku
-
-```bash
-# 1. Crear Procfile
-echo "web: uvicorn app.main:app --host=0.0.0.0 --port=${PORT:-8000}" > Procfile
-
-# 2. Deploy
-heroku create rpa-doc-generator
-git push heroku main
-```
-
----
-
-## 📧 Preguntas Frecuentes
-
-**P: ¿Cómo agregar soporte para nuevos formatos?**  
-R: Extender `project_parser.py` con nuevas funciones de parseo.
-
-**P: ¿Cómo mejorar la velocidad?**  
-R: Implementar caché, procesamiento async, o paralelización.
-
-**P: ¿Cómo manejar proyectos muy grandes?**  
-R: Usar streaming, procesar en chunks, o dividir en subtareas.
-
----
-
-## 💡 Tips
-
-1. **Utiliza logging:** Mejor que print() para producción
-2. **Valida entrada:** Siempre validar datos antes de procesarlos
-3. **Documenta:** Docstrings y comentarios claros
-4. **Testa:** Escribe tests para nuevas features
-5. **Refactoriza:** Mejora continuamente el código
-
----
-
-**¡Feliz desarrollo!** 🎉
+| Que agregar | Donde |
+|-------------|-------|
+| Nueva heuristica de calidad | `sdd_generator._generate_quality_observations` |
+| Nuevo detector de sistemas externos | `project_parser._extract_systems_from_node` |
+| Nuevo detector de credenciales | `project_parser._extract_credential_from_node` |
+| Nuevo formato de exportacion | Nuevo archivo en `app/generator/` + endpoint en `main.py` |
+| Nuevo tipo de descarga | `file_map` en `main.download_file` |

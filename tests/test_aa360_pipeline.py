@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from app.analysis.flow_builder import build_flow
-from app.generator.diagram_generator import generate_flow_svg, generate_mermaid
+from app.generator.diagram_generator import generate_flow_svg
 from app.generator.sdd_generator import generate_sdd
 from app.ingestion.extractor import extract_project
 from app.parser.project_parser import parse_project
@@ -17,19 +17,37 @@ TEST_TMP_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 class AA360PipelineTests(unittest.TestCase):
+    """
+    Tests de integración del pipeline completo de AA360.
+
+    Verifican que las etapas de parseo, construcción de flujo, generación
+    de SVG y compilación del SDD se ejecuten de extremo a extremo sobre un
+    proyecto sintético con estructura real de AA360 (manifest.json +
+    taskbots JSON).
+    """
+
     def test_parse_project_and_flow_use_real_taskbot_dependencies(self):
+        """
+        Pipeline completo: parseo → flujo → SVG → SDD.
+
+        Construye un proyecto de 2 taskbots (Main → Lookup) con manifest.json
+        y un contrato de variables (InCustomer / OutStatus). Verifica:
+        - conteo de tareas y orden de aparición,
+        - entrypoint detectado correctamente,
+        - arista de flujo con etiqueta 'runTask',
+        - contenido del SVG y del documento SDD generado,
+        - variables input/output del taskbot Lookup.
+        """
         with self._workspace_temp_dir() as temp_dir:
             project_root = Path(temp_dir) / "DemoProject"
             self._create_demo_project(project_root)
 
             project_data = parse_project(project_root)
             flow = build_flow(project_data["tasks"])
-            diagram = generate_mermaid(flow)
             svg = generate_flow_svg(flow)
             sdd = generate_sdd(
                 project_data,
                 "demo tree",
-                diagram,
                 flow,
                 "![Flujo principal entre taskbots](flujo_taskbots.svg)",
             )
@@ -39,7 +57,6 @@ class AA360PipelineTests(unittest.TestCase):
             self.assertEqual(project_data["metadata"]["entrypoints"], ["Main"])
             self.assertEqual(flow["summary"]["total_edges"], 1)
             self.assertEqual(flow["edges"][0]["label"], "runTask")
-            self.assertIn('task_1 -->|runTask | 1 in / 1 out| task_2', diagram)
             self.assertIn("<svg", svg)
             self.assertIn("Flujo principal entre taskbots", svg)
             self.assertIn("flujo_taskbots.svg", sdd)
@@ -51,6 +68,13 @@ class AA360PipelineTests(unittest.TestCase):
             self.assertEqual([variable["name"] for variable in lookup_task["variables"]["output"]], ["OutStatus"])
 
     def test_extract_project_rejects_zip_traversal(self):
+        """
+        Seguridad: el extractor debe rechazar ZIPs con path traversal.
+
+        Crea un ZIP malicioso con una entrada '../escape.txt' y confirma
+        que extract_project lanza ValueError antes de escribir ningún
+        archivo fuera del directorio de destino.
+        """
         with self._workspace_temp_dir() as temp_dir:
             zip_path = Path(temp_dir) / "bad.zip"
             with zipfile.ZipFile(zip_path, "w") as zip_file:
