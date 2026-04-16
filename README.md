@@ -302,7 +302,8 @@ Origenes permitidos por defecto:
 |-----------|-------|
 | Tamano maximo ZIP | 500 MB |
 | Tamano maximo extraccion | 1 GB |
-| Extensiones internas procesadas | `.xml`, `.json`, `.txt`, `.yml`, `.yaml`, `.csv` |
+
+> Estos limites son configurables via variables de entorno (`MAX_FILE_SIZE`, `MAX_EXTRACTION_SIZE`).
 
 ---
 
@@ -312,7 +313,6 @@ Origenes permitidos por defecto:
 rpa-doc-generator/
 ├── app/
 │   ├── main.py            # API FastAPI (endpoints)
-│   ├── config.py          # Configuracion y limites
 │   ├── ingestion/
 │   │   ├── uploader.py    # Validacion y guardado del ZIP
 │   │   └── extractor.py   # Extraccion segura del ZIP
@@ -320,7 +320,8 @@ rpa-doc-generator/
 │   │   └── project_parser.py  # Parseo taskbots, variables, credenciales, sistemas
 │   ├── analysis/
 │   │   ├── flow_builder.py    # Grafo de dependencias entre taskbots
-│   │   └── tree_builder.py    # Arbol de directorios filtrado
+│   │   ├── tree_builder.py    # Arbol de directorios filtrado
+│   │   └── task_ai_describer.py # Analisis IA (calidad + SDD)
 │   ├── generator/
 │   │   ├── sdd_generator.py   # Compilacion SDD y reporte de calidad (Markdown)
 │   │   ├── diagram_generator.py  # SVG del flujo entre taskbots
@@ -334,10 +335,19 @@ rpa-doc-generator/
 ├── output/                # Artefactos generados por sesion
 ├── tmp/                   # ZIPs extraidos temporalmente
 ├── requirements.txt
+├── .env.example
 ├── run.bat
 ├── run.sh
 └── DEVELOPMENT.md
 ```
+
+---
+
+## Configuracion por entorno
+
+- Runtime usa variables desde `.env`.
+- `.env.example` es plantilla de referencia.
+- Variables de IA, CORS, paths, host/puerto y limites de upload/extraccion se gestionan desde entorno.
 
 ---
 
@@ -365,6 +375,7 @@ rpa-doc-generator/
 | `404` al descargar | Verificar `session_id` y que `file_type` sea valido |
 | Puerto ocupado | Iniciar con `--port 8001` |
 | Modulo no encontrado | `pip install -r requirements.txt` |
+| Configuracion no aplicada | Verificar que el valor este en `.env` y reiniciar la API |
 
 ---
 

@@ -9,8 +9,8 @@ Para instalacion, ejecucion y uso de la API ver [README.md](README.md).
 
 ### `app/ingestion/`
 
-- `uploader.py` — Recibe el `UploadFile` de FastAPI, valida extension y lo guarda en `tmp/`.
-- `extractor.py` — Descomprime el ZIP de forma segura (previene path traversal). Retorna la ruta de la carpeta extraida.
+- `uploader.py` — Recibe el `UploadFile` de FastAPI, valida extension `.zip`, controla tamano maximo (`MAX_FILE_SIZE`) y lo guarda en `TMP_DIR`.
+- `extractor.py` — Descomprime el ZIP de forma segura (previene path traversal) y controla tamano total extraido (`MAX_EXTRACTION_SIZE`). Retorna la ruta de la carpeta extraida.
 
 ### `app/parser/`
 
@@ -24,6 +24,7 @@ Para instalacion, ejecucion y uso de la API ver [README.md](README.md).
 
 - `flow_builder.py` — Construye nodos y aristas a partir de las dependencias `scannedDependencies` del manifest y de las llamadas `runTask` detectadas. Retorna `{nodes, edges, summary}`.
 - `tree_builder.py` — Genera un arbol de directorios como texto, filtrando carpetas `metadata`, archivos `.jar`, imagenes, cache y archivos ocultos.
+- `task_ai_describer.py` — Capa de analisis IA (Groq/OpenAI-compatible + fallback heuristico): interpretacion por taskbot, priorizacion de hallazgos, plan de remediacion, insights SDD.
 
 ### `app/generator/`
 
@@ -39,6 +40,12 @@ Orquesta el pipeline en cada endpoint:
 2. `build_flow` + `build_tree`
 3. `generate_flow_svg` + `convert_svg_to_png`
 4. `generate_sdd_file` + `generate_sdd_word` + `generate_sdd_pdf`
+
+Configuracion de runtime via `.env`:
+- host/puerto (`APP_HOST`, `APP_PORT`)
+- CORS (`CORS_ORIGINS`)
+- paths (`OUTPUT_DIR`, `TMP_DIR`, `STATIC_DIR`)
+- metadatos de API (`APP_TITLE`, `APP_VERSION`, `APP_DESCRIPTION`)
 
 ---
 
@@ -78,6 +85,7 @@ pip install pytest coverage
 | `tests/test_aa360_pipeline.py` | Integracion | Pipeline completo parseo → flujo → SVG → SDD; seguridad ZIP |
 | `tests/test_parser_quality_coverage.py` | Unitario | Helpers de `project_parser` y funciones de `sdd_generator` |
 | `tests/test_extractor_coverage.py` | Unitario | Ramas de error de `extractor.extract_project` y `_validate_member_path` |
+| `tests/test_task_ai_describer.py` | Unitario | Prompts/contexto AA360, fallback IA, priorizacion y secciones IA en reportes |
 
 **`test_aa360_pipeline.py`**
 - `test_parse_project_and_flow_use_real_taskbot_dependencies` — ejecuta el pipeline de extremo a extremo
@@ -104,6 +112,11 @@ pip install pytest coverage
 - `test_extract_project_raises_bad_zip_for_invalid_archive_file` — archivo de texto pasado como ZIP.
 - `test_validate_member_path_allows_safe_relative_paths` — ruta relativa dentro del destino: OK.
 - `test_validate_member_path_rejects_path_traversal` — `../escape.txt` fuera del destino: ValueError.
+
+**`test_task_ai_describer.py`**
+- valida interpretacion IA por taskbot con fallback heuristico.
+- valida priorizacion de hallazgos y plan por sprint con criterios de cierre.
+- valida prompts especializados en Automation Anywhere 360 (taskbots, runTask, Credential Vault, triggers).
 
 ---
 
