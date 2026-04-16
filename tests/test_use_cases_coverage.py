@@ -36,13 +36,17 @@ class UseCasesCoverageTests(unittest.TestCase):
             settings = SimpleNamespace(output_dir=Path(temp_dir))
             logger = _DummyLogger()
             file_obj = _DummyUpload()
+            tmp_zip = Path(temp_dir) / "demo.zip"
+            tmp_zip.write_bytes(b"zip")
+            extracted_dir = Path(temp_dir) / "demo"
+            extracted_dir.mkdir(parents=True, exist_ok=True)
 
             def fake_convert(_svg_path, png_path):
                 Path(png_path).write_bytes(b"png")
 
             with patch("app.application.use_cases.generate_sdd.datetime", _FixedDateTime), patch(
-                "app.application.use_cases.generate_sdd.save_file", return_value="/tmp/demo.zip"
-            ), patch("app.application.use_cases.generate_sdd.extract_project", return_value="/tmp/project"), patch(
+                "app.application.use_cases.generate_sdd.save_file", return_value=str(tmp_zip)
+            ), patch("app.application.use_cases.generate_sdd.extract_project", return_value=str(extracted_dir)), patch(
                 "app.application.use_cases.generate_sdd.parse_project",
                 return_value={"name": "Demo", "task_count": 1, "tasks": [{"name": "Main"}]},
             ), patch("app.application.use_cases.generate_sdd.build_flow", return_value={"nodes": [], "edges": []}), patch(
@@ -63,19 +67,25 @@ class UseCasesCoverageTests(unittest.TestCase):
                 Path(result["output_directory"]).joinpath("flujo_taskbots.png").exists(),
                 "El PNG intermedio debe eliminarse al finalizar",
             )
+            self.assertFalse(tmp_zip.exists(), "El ZIP temporal debe eliminarse al finalizar")
+            self.assertFalse(extracted_dir.exists(), "La carpeta extraida temporal debe eliminarse al finalizar")
 
     def test_run_generate_quality_reads_generated_markdown(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             settings = SimpleNamespace(output_dir=Path(temp_dir))
             logger = _DummyLogger()
             file_obj = _DummyUpload()
+            tmp_zip = Path(temp_dir) / "demo.zip"
+            tmp_zip.write_bytes(b"zip")
+            extracted_dir = Path(temp_dir) / "demo"
+            extracted_dir.mkdir(parents=True, exist_ok=True)
 
             def fake_generate_quality_file(_project_data, output_path):
                 Path(output_path).write_text("# Calidad", encoding="utf-8")
 
             with patch("app.application.use_cases.generate_quality.datetime", _FixedDateTime), patch(
-                "app.application.use_cases.generate_quality.save_file", return_value="/tmp/demo.zip"
-            ), patch("app.application.use_cases.generate_quality.extract_project", return_value="/tmp/project"), patch(
+                "app.application.use_cases.generate_quality.save_file", return_value=str(tmp_zip)
+            ), patch("app.application.use_cases.generate_quality.extract_project", return_value=str(extracted_dir)), patch(
                 "app.application.use_cases.generate_quality.parse_project", return_value={"name": "Demo"}
             ), patch(
                 "app.application.use_cases.generate_quality.generate_quality_file",
@@ -89,6 +99,8 @@ class UseCasesCoverageTests(unittest.TestCase):
             self.assertEqual(result["session_id"], "20260416_130000_000000")
             self.assertTrue(result["archivos_salida"]["calidad_path"].endswith("Calidad_Demo.md"))
             self.assertEqual(pdf_mock.call_count, 1)
+            self.assertFalse(tmp_zip.exists(), "El ZIP temporal debe eliminarse al finalizar")
+            self.assertFalse(extracted_dir.exists(), "La carpeta extraida temporal debe eliminarse al finalizar")
 
     def test_download_artifact_resolution(self):
         with tempfile.TemporaryDirectory() as temp_dir:
