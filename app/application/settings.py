@@ -44,6 +44,11 @@ class AppSettings:
     openai_api_key: str
     openai_model: str
     openai_base_url: str
+    api_rate_limit_enabled: bool
+    api_rate_limit_max_requests: int
+    api_rate_limit_window_seconds: int
+    max_concurrent_generations: int
+    generation_acquire_timeout_seconds: int
 
     @classmethod
     def from_env(cls):
@@ -78,4 +83,9 @@ class AppSettings:
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini",
             openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
+            api_rate_limit_enabled=_env_bool("API_RATE_LIMIT_ENABLED", "true"),
+            api_rate_limit_max_requests=_env_int("API_RATE_LIMIT_MAX_REQUESTS", "30"),
+            api_rate_limit_window_seconds=_env_int("API_RATE_LIMIT_WINDOW_SECONDS", "60"),
+            max_concurrent_generations=_env_int("MAX_CONCURRENT_GENERATIONS", "2"),
+            generation_acquire_timeout_seconds=_env_int("GENERATION_ACQUIRE_TIMEOUT_SECONDS", "10"),
         )

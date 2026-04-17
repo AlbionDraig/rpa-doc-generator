@@ -12,6 +12,7 @@ from app.api.routes.generate import router as generate_router
 from app.api.routes.quality import router as quality_router
 from app.api.routes.system import router as system_router
 from app.application.settings import AppSettings
+from app.limits import ConcurrencyLimiter, EndpointRateLimitMiddleware
 from app.observability import ObservabilityMiddleware, configure_logging
 
 load_dotenv()
@@ -31,8 +32,20 @@ def create_app():
 
     app_instance.state.settings = settings
     app_instance.state.logger = logger
+    app_instance.state.generation_limiter = ConcurrencyLimiter(
+        limit=settings.max_concurrent_generations,
+        acquire_timeout_seconds=settings.generation_acquire_timeout_seconds,
+    )
 
     app_instance.add_middleware(ObservabilityMiddleware, logger=logger)
+    app_instance.add_middleware(
+        EndpointRateLimitMiddleware,
+        logger=logger,
+        enabled=settings.api_rate_limit_enabled,
+        limit=settings.api_rate_limit_max_requests,
+        window_seconds=settings.api_rate_limit_window_seconds,
+        protected_paths={"/generate/", "/quality/"},
+    )
 
     app_instance.add_middleware(
         CORSMiddleware,

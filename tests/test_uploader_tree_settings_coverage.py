@@ -85,6 +85,8 @@ class UploaderTreeSettingsCoverageTests(unittest.TestCase):
         self.assertFalse(settings.app_access_log)
         self.assertEqual(settings.cors_origins, ["http://a.com", "http://b.com"])
         self.assertEqual(settings.public_base_url, "http://example.com")
+        self.assertTrue(settings.api_rate_limit_enabled)
+        self.assertEqual(settings.max_concurrent_generations, 2)
 
         with patch.dict("os.environ", {"APP_PORT": "9000"}, clear=False):
             self.assertEqual(_env_int("APP_PORT", "8000"), 9000)

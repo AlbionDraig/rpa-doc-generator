@@ -109,6 +109,11 @@ class DiagramAndMainCoverageTests(unittest.TestCase):
                 app_port=8000,
                 app_log_level="info",
                 app_access_log=True,
+                api_rate_limit_enabled=True,
+                api_rate_limit_max_requests=30,
+                api_rate_limit_window_seconds=60,
+                max_concurrent_generations=2,
+                generation_acquire_timeout_seconds=10,
             )
 
             with patch.object(main_module, "settings", custom_settings):
