@@ -13,6 +13,7 @@ Documentacion tecnica alineada con el codigo actual del proyecto.
 7. [Limites, Rate Limit y Observabilidad](#7-limites-rate-limit-y-observabilidad)
 8. [Templates y Salidas](#8-templates-y-salidas)
 9. [Errores y Codigos](#9-errores-y-codigos)
+10. [Licencia](#10-licencia)
 
 ---
 
@@ -443,6 +444,15 @@ Codigos internos mas relevantes observables en rutas:
 - capacity_exceeded (generate/quality, 503)
 
 Adicionalmente, map_exception_to_http() en rutas generate/quality transforma errores de dominio a HTTPException.
+
+---
+
+## 10) Licencia
+
+Este proyecto se distribuye bajo licencia MIT.
+Su uso y distribucion se realizan con autorizacion del titular del repositorio.
+
+Texto completo: [LICENSE](LICENSE)
 
 ---
 

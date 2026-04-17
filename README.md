@@ -2,6 +2,7 @@
 
 [![CI](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml)
 ![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Generador automatico de documentacion tecnica para bots de Automation Anywhere 360.
 
@@ -25,6 +26,7 @@ Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de ca
 - [Configuracion por entorno](#configuracion-por-entorno)
 - [Flujo interno de procesamiento](#flujo-interno-de-procesamiento)
 - [Troubleshooting](#troubleshooting)
+- [Licencia](#licencia)
 
 ---
 
@@ -506,6 +508,15 @@ rpa-doc-generator/
 | Puerto ocupado | Iniciar con `--port 8001` |
 | Modulo no encontrado | `pip install -r requirements.txt` |
 | Configuracion no aplicada | Verificar que el valor este en `.env` y reiniciar la API |
+
+---
+
+## Licencia
+
+Este proyecto se distribuye bajo la licencia MIT.
+Su uso y distribucion se realiza con autorizacion del titular del repositorio.
+
+Consulta el texto completo en [LICENSE](LICENSE).
 
 ---
 

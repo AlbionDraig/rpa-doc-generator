@@ -22,6 +22,7 @@ Para contratos y modelos exactos del codigo:
 10. [Templates](#templates)
 11. [Convenciones de Desarrollo](#convenciones-de-desarrollo)
 12. [Pruebas](#pruebas)
+13. [Licencia](#licencia)
 
 ---
 
@@ -291,3 +292,12 @@ python -m coverage report -m
 ```
 
 Para estado de cobertura y badges, revisar README.md.
+
+---
+
+## Licencia
+
+Este proyecto se distribuye bajo licencia MIT.
+Su uso y distribucion se realizan con autorizacion del titular del repositorio.
+
+Texto completo: [LICENSE](LICENSE)
