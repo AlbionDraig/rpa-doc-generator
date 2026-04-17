@@ -1,0 +1,74 @@
+{
+  "colors": {
+    "primary": {
+      "rgb": [30, 41, 59],
+      "hex": "1E293B",
+      "name": "Slate 800"
+    },
+    "secondary": {
+      "rgb": [51, 65, 85],
+      "hex": "334155",
+      "name": "Slate 700"
+    },
+    "accent": {
+      "rgb": [79, 70, 229],
+      "hex": "4F46E5",
+      "name": "Indigo 600"
+    },
+    "dark": {
+      "rgb": [15, 23, 42],
+      "hex": "0F172A",
+      "name": "Slate 900"
+    },
+    "table_header": {
+      "hex": "1E293B",
+      "name": "Slate 800"
+    },
+    "table_alt": {
+      "hex": "F1F5F9",
+      "name": "Slate 100"
+    },
+    "text": {
+      "rgb": [30, 41, 59],
+      "hex": "1E293B",
+      "name": "Slate 800"
+    },
+    "muted": {
+      "rgb": [100, 116, 139],
+      "hex": "64748B",
+      "name": "Slate 500"
+    },
+    "success": {
+      "rgb": [5, 150, 105],
+      "hex": "059669",
+      "name": "Emerald 600"
+    }
+  },
+  "fonts": {
+    "default": "Calibri",
+    "monospace": "Courier"
+  },
+  "spacing": {
+    "margins": {
+      "top": 2.0,
+      "bottom": 2.0,
+      "left": 2.4,
+      "right": 2.4,
+      "unit": "cm"
+    },
+    "paragraph": {
+      "space_after": 4.0,
+      "space_before": 2.0,
+      "line_spacing": 1.15,
+      "unit": "pt"
+    }
+  },
+  "sizes": {
+    "normal": 10,
+    "small": 8,
+    "tiny": 7,
+    "large": 12,
+    "huge": 20,
+    "unit": "pt"
+  }
+}

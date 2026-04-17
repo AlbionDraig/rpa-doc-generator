@@ -141,6 +141,42 @@ class TaskAIDescriberTests(unittest.TestCase):
         self.assertIn(result["priority_findings"][0]["severity"], {"bloqueante", "alto", "medio", "bajo"})
         self.assertTrue(result["sprint_plan"][0]["done_criteria"])
 
+    def test_normalize_priority_findings_accepts_ai_style_keys(self):
+        findings = task_ai_describer._normalize_priority_findings(
+            [
+                {
+                    "severity": "alto",
+                    "hallazgo": "Ruta hardcodeada",
+                    "why_it_matters": "Genera riesgo operativo entre ambientes.",
+                    "taskbot": "Main",
+                }
+            ]
+        )
+
+        self.assertEqual(findings, [
+            {
+                "severity": "alto",
+                "title": "Ruta hardcodeada",
+                "why": "Genera riesgo operativo entre ambientes.",
+                "task": "Main",
+            }
+        ])
+
+    def test_heuristic_prioritization_builds_meaningful_titles(self):
+        result = task_ai_describer._heuristic_prioritization(
+            {"Main": {"criticality": "media", "task_profile": "principal"}},
+            [
+                "⚠ **Main** no tiene bloques try/catch. Se recomienda manejo de errores explicito.",
+                "⚠ **Main** usa ruta de archivo hardcodeada: C:/tmp/a.txt",
+                "⚠ Se detectaron conexiones a base de datos pero no se encontraron credenciales via CredentialVault.",
+            ],
+        )
+
+        titles = [finding["title"] for finding in result["priority_findings"]]
+        self.assertIn("Manejo de errores incompleto", titles)
+        self.assertIn("Ruta o valor hardcodeado", titles)
+        self.assertIn("Riesgo de credenciales fuera de vault", titles)
+
     def test_prompts_include_aa360_specific_context(self):
         quality_prompt = task_ai_describer._build_prompt(self.task)
         self.assertIn("Automation Anywhere 360", quality_prompt)

@@ -485,12 +485,30 @@ def _normalize_priority_findings(findings):
     for finding in findings[:6]:
         if not isinstance(finding, dict):
             continue
+        title = str(
+            finding.get("title")
+            or finding.get("hallazgo")
+            or finding.get("finding")
+            or "Hallazgo sin titulo"
+        ).strip()
+        why = str(
+            finding.get("why")
+            or finding.get("why_it_matters")
+            or finding.get("reason")
+            or "Sin justificacion"
+        ).strip()
+        task = str(
+            finding.get("task")
+            or finding.get("taskbot")
+            or finding.get("task_name")
+            or "General"
+        ).strip()
         normalized.append(
             {
                 "severity": _normalize_severity(finding.get("severity")),
-                "title": str(finding.get("title", "Hallazgo sin titulo")).strip(),
-                "why": str(finding.get("why", "Sin justificacion")).strip(),
-                "task": str(finding.get("task", "General")).strip(),
+                "title": title,
+                "why": why,
+                "task": task,
             }
         )
     return normalized
@@ -559,7 +577,7 @@ def _heuristic_prioritization(task_descriptions, observations):
         findings.append(
             {
                 "severity": severity,
-                "title": "Hallazgo detectado",
+                "title": _build_priority_finding_title(text),
                 "why": re.sub(r"[*`]+", "", text)[:220],
                 "task": _extract_task_name_from_observation(text),
             }
@@ -705,6 +723,30 @@ def _extract_task_name_from_observation(observation):
     if match:
         return match.group(1)
     return "General"
+
+
+def _build_priority_finding_title(observation):
+    text = str(observation)
+    lowered = text.lower()
+
+    if "try/catch" in lowered:
+        return "Manejo de errores incompleto"
+    if "hardcode" in lowered:
+        return "Ruta o valor hardcodeado"
+    if "credentialvault" in lowered or "credenciales" in lowered:
+        return "Riesgo de credenciales fuera de vault"
+    if "deshabilitado" in lowered:
+        return "Nodos deshabilitados sin depurar"
+    if "descripcion declarada" in lowered:
+        return "Falta descripcion funcional"
+    if "developer declarado" in lowered:
+        return "Falta owner tecnico"
+
+    cleaned = re.sub(r"[*`]+", "", text).strip(" -:.\n\t")
+    if not cleaned:
+        return "Hallazgo detectado"
+
+    return cleaned[:72] + "..." if len(cleaned) > 72 else cleaned
 
 
 def _top_tasks_from_findings(findings, limit):

@@ -4,6 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from docx import Document
+
 from app.generator import pdf_generator, word_generator
 
 
@@ -146,6 +148,154 @@ class ExportGeneratorsCoverageTests(unittest.TestCase):
         self.assertTrue(any("deshabilitado" in item for item in obs))
         self.assertTrue(any("try pero no catch" in item for item in obs))
         self.assertTrue(any("hardcodeada" in item for item in obs))
+
+    def test_word_theme_fallback_and_markdown_parsing_helpers(self):
+        with patch("app.generator.word_generator.Path.exists", return_value=True), patch(
+            "app.generator.word_generator.Path.read_text", side_effect=RuntimeError("broken json")
+        ):
+            theme = word_generator._load_word_theme()
+
+        self.assertEqual(theme, word_generator._DEFAULT_THEME)
+
+        parsed = word_generator._parse_quality_markdown(
+            "# Observaciones de Calidad - Demo\n\n"
+            "Fecha de analisis: 2026-04-16 18:40:08\n\n"
+            "## Resumen\n\n"
+            "- **Taskbots analizados:** 2\n"
+            "- **Observaciones detectadas:** 3\n\n"
+            "## Hallazgos\n\n"
+            "Texto libre\n"
+        )
+
+        self.assertEqual(parsed["project_name"], "Demo")
+        self.assertEqual([section["title"] for section in parsed["sections"]], ["Resumen", "Hallazgos"])
+        self.assertEqual(word_generator._split_markdown_table_row("| A | B |"), ["A", "B"])
+        self.assertEqual(word_generator._strip_markdown_inline("<sub>**hola** `x`</sub>"), "hola x")
+
+    def test_word_markdown_rendering_helpers(self):
+        doc = Document()
+        word_generator._setup_document(doc)
+
+        parsed = {
+            "project_name": "Demo",
+            "sections": [
+                {
+                    "title": "Resumen",
+                    "lines": [
+                        "Fecha de analisis: 2026-04-16 18:40:08",
+                        "",
+                        "- **Taskbots analizados:** 2",
+                        "- **Observaciones detectadas:** 3",
+                    ],
+                },
+                {
+                    "title": "Hallazgos",
+                    "lines": [
+                        "- **Main** usa ruta hardcodeada",
+                        "  - detalle secundario",
+                        "### Subtitulo",
+                        "Texto normal",
+                        "| Col A | Col B |",
+                        "|-------|-------|",
+                        "| v1 | linea 1<br>linea 2 |",
+                        "---",
+                    ],
+                },
+            ],
+        }
+
+        word_generator._render_quality_markdown(doc, parsed)
+
+        paragraph_text = "\n".join(p.text for p in doc.paragraphs)
+        table_text = "\n".join(
+            cell.text
+            for table in doc.tables
+            for row in table.rows
+            for cell in row.cells
+        )
+
+        self.assertIn("Resumen", paragraph_text)
+        self.assertIn("Hallazgos", paragraph_text)
+        self.assertIn("Subtitulo", paragraph_text)
+        self.assertIn("Texto normal", paragraph_text)
+        self.assertIn("ruta hardcodeada", paragraph_text.lower())
+        self.assertIn("Taskbots analizados", table_text)
+        self.assertIn("2026-04-16 18:40:08", table_text)
+        self.assertIn("linea 1 | linea 2", table_text)
+
+    def test_quality_word_section_helpers_cover_empty_and_populated_paths(self):
+        doc = Document()
+        word_generator._setup_document(doc)
+
+        word_generator._add_quality_prioritization_table(doc, {"priority_findings": []})
+        word_generator._add_quality_remediation_table(doc, {"sprint_plan": []})
+        word_generator._add_quality_task_interpretations(doc, [], {})
+
+        word_generator._add_quality_prioritization_table(
+            doc,
+            {
+                "source": "ai",
+                "confidence": "alta",
+                "priority_findings": [
+                    {
+                        "severity": "alto",
+                        "taskbot": "Main",
+                        "hallazgo": "Valor hardcodeado",
+                        "why_it_matters": "X" * 140,
+                    }
+                ],
+            },
+        )
+        word_generator._add_quality_remediation_table(
+            doc,
+            {
+                "sprint_plan": [
+                    {
+                        "priority": "P1",
+                        "action": "Corregir configuracion",
+                        "effort": "M",
+                        "impact": "Alto",
+                        "owner": "dev",
+                        "tasks": ["Main", "Lookup", "OtroTaskLargo"],
+                        "done_criteria": ["criterio uno", "criterio dos", "criterio tres"],
+                    }
+                ]
+            },
+        )
+        word_generator._add_quality_task_interpretations(
+            doc,
+            [{"name": "Main", "type": "taskbot"}],
+            {
+                "Main": {
+                    "task_profile": "principal",
+                    "what_it_does": "Ejecuta flujo principal",
+                    "business_function": "Coordina subtareas",
+                    "criticality": "alta",
+                    "risks": ["Riesgo 1"],
+                    "recommendations": ["Recomendacion 1"],
+                    "source": "ai",
+                    "confidence": "alta",
+                }
+            },
+        )
+
+        paragraph_text = "\n".join(p.text for p in doc.paragraphs)
+        table_text = "\n".join(
+            cell.text
+            for table in doc.tables
+            for row in table.rows
+            for cell in row.cells
+        )
+
+        self.assertIn("No se detectaron hallazgos priorizables.", paragraph_text)
+        self.assertIn("No se genero plan de remediacion.", paragraph_text)
+        self.assertIn("No se detectaron taskbots para interpretar.", paragraph_text)
+        self.assertIn("Fuente de priorizacion: ai | Confianza: alta", paragraph_text)
+        self.assertIn("Valor hardcodeado", table_text)
+        self.assertIn("Corregir configuracion", table_text)
+        self.assertIn("Main", paragraph_text)
+        self.assertIn("Riesgos detectados:", paragraph_text)
+        self.assertIn("Recomendacion 1", paragraph_text)
 
     def test_pdf_helpers_and_generators(self):
         self.assertEqual(pdf_generator._escape_html("<a&b>"), "&lt;a&amp;b&gt;")

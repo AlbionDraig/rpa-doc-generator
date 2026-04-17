@@ -401,6 +401,7 @@ def _generate_quality_observations(project_data):
     """Genera observaciones de calidad como documento independiente."""
     tasks = project_data.get("tasks", [])
     project_name = project_data.get("name", "Proyecto")
+    template = _load_quality_template()
     observations = []
     task_descriptions = build_quality_task_descriptions(tasks)
 
@@ -476,22 +477,15 @@ def _generate_quality_observations(project_data):
     priority_section = _generate_priority_findings_section(prioritization)
     sprint_plan_section = _generate_sprint_plan_section(prioritization)
 
-    return (
-        f"# Observaciones de Calidad - {project_name}\n\n"
-        f"Fecha de analisis: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        f"## Resumen\n\n"
-        f"- **Taskbots analizados:** {len(tasks)}\n"
-        f"- **Observaciones detectadas:** {len(observations)}\n\n"
-        f"## Hallazgos\n\n"
-        f"{body}\n\n"
-        f"## Priorizacion Inteligente de Hallazgos\n\n"
-        f"{priority_section}\n\n"
-        f"## Plan de Remediacion por Sprint\n\n"
-        f"{sprint_plan_section}\n\n"
-        f"## Interpretacion funcional por Taskbot\n\n"
-        f"{interpretation_section}\n\n"
-        f"---\n"
-        f"Documento generado automaticamente por RPA-Doc-Generator.\n"
+    return template.format(
+        name=project_name,
+        generated_date=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        task_count=len(tasks),
+        observation_count=len(observations),
+        findings=body,
+        priority_section=priority_section,
+        sprint_plan_section=sprint_plan_section,
+        interpretation_section=interpretation_section,
     )
 
 
@@ -671,4 +665,42 @@ def _generate_default_template():
 
 ---
 Documento generado automaticamente por RPA-Doc-Generator el {generated_date}.
+"""
+
+
+def _load_quality_template():
+    template_path = Path("app/templates/quality_template.md")
+    if template_path.exists():
+        return template_path.read_text(encoding="utf-8")
+    return _generate_default_quality_template()
+
+
+def _generate_default_quality_template():
+    return """# Observaciones de Calidad - {name}
+
+Fecha de analisis: {generated_date}
+
+## Resumen
+
+- **Taskbots analizados:** {task_count}
+- **Observaciones detectadas:** {observation_count}
+
+## Hallazgos
+
+{findings}
+
+## Priorizacion Inteligente de Hallazgos
+
+{priority_section}
+
+## Plan de Remediacion por Sprint
+
+{sprint_plan_section}
+
+## Interpretacion funcional por Taskbot
+
+{interpretation_section}
+
+---
+Documento generado automaticamente por RPA-Doc-Generator.
 """

@@ -50,10 +50,10 @@ La aplicacion sigue un monolito modular con separacion por capas:
 
 ### `app/generator/`
 
-- `sdd_generator.py` — Rellena `sdd_template.md` con las secciones del SDD. Tambien contiene `generate_quality_file` que produce el reporte de observaciones de calidad.
+- `sdd_generator.py` — Rellena `sdd_template.md` con las secciones del SDD y `quality_template.md` con el reporte de observaciones de calidad.
 - `diagram_generator.py` — Genera el SVG autocontenido del flujo con layout automatico por niveles (BFS desde entrypoints). Tambien convierte el SVG a PNG via `svglib`+`reportlab` para embeber en DOCX/PDF.
-- `word_generator.py` — Exporta SDD y Calidad a `.docx` via `python-docx`.
-- `pdf_generator.py` — Exporta SDD y Calidad a `.pdf` via `reportlab`.
+- `word_generator.py` — Exporta SDD y Calidad a `.docx` via `python-docx`. Carga configuracion de temas (colores, tipografia) desde `word_theme.json` con fallback a valores por defecto.
+- `pdf_generator.py` — Exporta SDD y Calidad a `.pdf` via `reportlab`. Carga estilos CSS desde `pdf_style.css` con fallback a estilos por defecto.
 
 ### `app/main.py`
 
@@ -88,7 +88,100 @@ HTTP Router (`app/api/routes/*.py`)
 
 ---
 
+## Templates
+
+Los templates en `app/templates/` centralizan la configuracion de estilos y formatos de documentos, permitiendo personalizacion sin modificar codigo:
+
+| Template | Proposito | Fallback |
+|----------|-----------|----------|
+| `sdd_template.md` | Estructura Markdown del SDD; placeholder para 12 secciones | Embebido en `sdd_generator.py` |
+| `quality_template.md` | Estructura Markdown del reporte de calidad; placeholder para hallazgos y plan de remediacion | Embebido en `sdd_generator.py` |
+| `pdf_style.css` | Estilos CSS para PDFs (colores, tipografia, tablas, headers); usado por `pdf_generator.py` | Embebido en `pdf_generator.py` como `_DEFAULT_CSS_STYLE` |
+| `word_theme.json` | Configuracion de tema Word (colores RGB/HEX, fuentes, espaciado); usado por `word_generator.py` | Embebido en `word_generator.py` como `_DEFAULT_THEME` |
+
+**Mecanismo de carga:**
+- Cada template tiene una funcion de carga: `_load_*_template()` que intenta leer el archivo.
+- Si el archivo no existe o hay error, retorna un fallback embebido en el codigo.
+- Esto permite:
+  - **Personalizar** sin afectar deployment (solo reemplazar el archivo `.md`, `.css` o `.json`).
+  - **Resiliencia** ante cambios accidentales (fallback siempre disponible).
+  - **Versionamiento** (templates en git, valores por defecto en codigo).
+
+**Ejemplo: Cambiar tema de Word**
+
+Editar `app/templates/word_theme.json` para cambiar colores:
+```json
+{
+  "colors": {
+    "primary": {"rgb": [10, 20, 30], "hex": "0A141E"},
+    "accent": {"rgb": [200, 100, 50], "hex": "C86432"},
+    ...
+  }
+}
+```
+
+Todos los documentos Word generados usaran los nuevos colores sin recompilar.
+
+---
+
+## Paridad de Contenido: Markdown vs Word
+
+### Reporte de Calidad
+
+El reporte de calidad genera **4 secciones en ambos formatos** (Markdown y Word):
+
+1. **Hallazgos** — Lista de observaciones detectadas (nodos deshabilitados, falta de try/catch, etc.)
+2. **Priorizacion Inteligente** — Tabla: Severidad | Taskbot | Hallazgo | Por que importa
+3. **Plan de Remediacion por Sprint** — Tabla: Prioridad | Accion | Esfuerzo | Impacto | Owner | Taskbots | Criterio de cierre
+4. **Interpretacion funcional por Taskbot** — Detalles: perfil AA360, que hace, riesgos, mejoras, fuente de analisis
+
+**Codigo:** `generate_quality_word()` en `word_generator.py` toma el Markdown final como **fuente de verdad**.
+- `generate_quality_file()` compila primero `Calidad_<Proyecto>.md`
+- `run_generate_quality()` reutiliza ese mismo contenido para Word y PDF
+- Word parsea y renderiza el Markdown mediante `_parse_quality_markdown()` y `_render_quality_markdown()`
+
+Esto evita divergencias entre formatos y elimina la duplicacion de logica de contenido en el exportador DOCX.
+
+**Validacion:** Tests `test_quality_content_validation.py` verifican que ambos formatos (MD y Word) tengan el mismo contenido estructural.
+
+### SDD (Software Design Document)
+
+El SDD Word contiene todas las **10 secciones estructurales** del Markdown SDD:
+- Informacion General
+- Estadisticas
+- Flujo Principal
+- Contrato de Dependencias
+- Inventario de Taskbots
+- Variables
+- Credenciales
+- Sistemas Externos
+- Paquetes AA360
+- Estructura del Proyecto
+
+**Codigo:** `generate_sdd_word()` en `word_generator.py` renderiza todas las secciones via helpers dedicados (`_add_*` functions).
+
+---
+
 ## Tests
+
+### Baseline actual
+
+Validacion completa ejecutada el `2026-04-16`:
+
+- `78` tests pasando
+- Cobertura total: `96%`
+- Cobertura destacada:
+  - `app/generator/word_generator.py`: `96%`
+  - `app/application/use_cases/generate_quality.py`: `100%`
+  - `app/analysis/task_ai_describer.py`: `95%`
+
+Comando de referencia:
+
+```bash
+python -m coverage erase
+python -m coverage run -m pytest tests -q
+python -m coverage report -m
+```
 
 ### Requisitos previos
 
@@ -116,6 +209,9 @@ pip install pytest coverage
 | `tests/test_parser_quality_coverage.py` | Unitario | Helpers de `project_parser` y funciones de `sdd_generator` |
 | `tests/test_extractor_coverage.py` | Unitario | Ramas de error de `extractor.extract_project` y `_validate_member_path` |
 | `tests/test_task_ai_describer.py` | Unitario | Prompts/contexto AA360, fallback IA, priorizacion y secciones IA en reportes |
+| `tests/test_template_loading.py` | Unitario/Templates | Carga de templates PDF/Word, validacion de contenido y mecanismo fallback |
+| `tests/test_quality_content_validation.py` | Unitario/Comparación | Validacion que Word de calidad contiene todas las secciones del Markdown |
+| `tests/test_sdd_content_validation.py` | Unitario/Comparación | Validacion que Word de SDD contiene todas las secciones del Markdown |
 
 **`test_api_structure.py`**
 - `test_system_endpoints_are_available` — valida `GET /` y `GET /health`.
@@ -140,6 +236,7 @@ pip install pytest coverage
 **`test_export_generators_coverage.py`**
 - valida `generate_sdd_word` y `generate_quality_word` con fixtures reales de proyecto AA360.
 - valida helpers de Word (`_format_size`, `_describe_error_handling`, `_unique_preserve`, `_collect_quality_observations`).
+- valida parseo/render Markdown de Word para calidad (`_parse_quality_markdown`, `_render_quality_markdown`, tablas, bullets y fallbacks de tema).
 - valida helpers PDF (`_sanitize_tree_for_pdf`, `_fix_pre_newlines`, `_fix_heading_anchors`, `_escape_html`).
 - valida `generate_sdd_pdf` y `generate_quality_pdf` con `pisa.CreatePDF` mockeado y rutas de error.
 

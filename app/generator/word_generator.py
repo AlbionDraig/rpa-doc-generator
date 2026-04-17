@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -11,15 +13,51 @@ from docx.oxml import parse_xml
 
 logger = logging.getLogger(__name__)
 
-# Brand colors — Slate / Indigo / Emerald
-COLOR_PRIMARY = RGBColor(0x1E, 0x29, 0x3B)      # Slate 800
-COLOR_SECONDARY = RGBColor(0x33, 0x41, 0x55)     # Slate 700
-COLOR_ACCENT = RGBColor(0x4F, 0x46, 0xE5)        # Indigo 600
-COLOR_DARK = RGBColor(0x0F, 0x17, 0x2A)          # Slate 900
-COLOR_TABLE_HEADER = "1E293B"                      # Slate 800 hex for XML
-COLOR_TABLE_ALT = "F1F5F9"                         # Slate 100 hex
-COLOR_TEXT = RGBColor(0x1E, 0x29, 0x3B)           # Slate 800
-COLOR_MUTED = RGBColor(0x64, 0x74, 0x8B)         # Slate 500
+# Default theme (fallback if template missing)
+_DEFAULT_THEME = {
+    "colors": {
+        "primary": {"rgb": [30, 41, 59], "hex": "1E293B"},
+        "secondary": {"rgb": [51, 65, 85], "hex": "334155"},
+        "accent": {"rgb": [79, 70, 229], "hex": "4F46E5"},
+        "dark": {"rgb": [15, 23, 42], "hex": "0F172A"},
+        "table_header": {"hex": "1E293B"},
+        "table_alt": {"hex": "F1F5F9"},
+        "text": {"rgb": [30, 41, 59], "hex": "1E293B"},
+        "muted": {"rgb": [100, 116, 139], "hex": "64748B"},
+        "success": {"rgb": [5, 150, 105], "hex": "059669"},
+    }
+}
+
+
+def _load_word_theme():
+    """Load Word theme configuration from template with fallback to default."""
+    theme_path = Path("app/templates/word_theme.json")
+    if theme_path.exists():
+        try:
+            return json.loads(theme_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            logger.warning("Error loading Word theme template: %s, using default", exc)
+            return _DEFAULT_THEME
+    return _DEFAULT_THEME
+
+
+def _get_theme_colors():
+    """Get color theme for Word document generation."""
+    theme = _load_word_theme()
+    colors = theme.get("colors", _DEFAULT_THEME["colors"])
+    return colors
+
+
+# Brand colors — Slate / Indigo / Emerald (loaded from theme)
+_theme_colors = _get_theme_colors()
+COLOR_PRIMARY = RGBColor(*_theme_colors["primary"]["rgb"])
+COLOR_SECONDARY = RGBColor(*_theme_colors["secondary"]["rgb"])
+COLOR_ACCENT = RGBColor(*_theme_colors["accent"]["rgb"])
+COLOR_DARK = RGBColor(*_theme_colors["dark"]["rgb"])
+COLOR_TABLE_HEADER = _theme_colors["table_header"]["hex"]
+COLOR_TABLE_ALT = _theme_colors["table_alt"]["hex"]
+COLOR_TEXT = RGBColor(*_theme_colors["text"]["rgb"])
+COLOR_MUTED = RGBColor(*_theme_colors["muted"]["rgb"])
 
 
 def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_path=None):
@@ -124,37 +162,25 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
         raise
 
 
-def generate_quality_word(project_data, output_path):
+def generate_quality_word(project_data, output_path, md_content=None):
     """Genera el reporte de calidad en formato Word (.docx) con estilo profesional."""
     try:
         doc = Document()
         _setup_document(doc)
 
-        project_name = project_data.get("name", "Proyecto")
-        tasks = project_data.get("tasks", [])
-        observations = _collect_quality_observations(project_data)
+        if md_content is None:
+            from app.generator.sdd_generator import _generate_quality_observations
+
+            md_content = _generate_quality_observations(project_data)
+
+        parsed = _parse_quality_markdown(md_content)
+        project_name = parsed.get("project_name") or project_data.get("name", "Proyecto")
 
         # Cover
         _add_cover_page(doc, project_name, project_data.get("metadata", {}), doc_type="Calidad")
         doc.add_page_break()
 
-        # Resumen
-        _add_styled_heading(doc, "Resumen", level=1)
-        _add_info_card(doc, [
-            ("Taskbots analizados", str(len(tasks))),
-            ("Observaciones detectadas", str(len(observations))),
-            ("Fecha", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-        ])
-
-        # Hallazgos
-        _add_styled_heading(doc, "Hallazgos", level=1)
-        if observations:
-            for obs in observations:
-                _add_observation_item(doc, obs)
-        else:
-            p = doc.add_paragraph()
-            run = p.add_run("No se detectaron observaciones relevantes. El bot cumple las buenas practicas basicas.")
-            run.font.color.rgb = RGBColor(0x05, 0x96, 0x69)  # Emerald 600
+        _render_quality_markdown(doc, parsed)
 
         # Footer
         _add_divider(doc)
@@ -174,6 +200,151 @@ def generate_quality_word(project_data, output_path):
     except Exception as exc:
         logger.error("Error generando Calidad Word: %s", exc)
         raise
+
+
+def _parse_quality_markdown(md_content):
+    lines = md_content.splitlines()
+    parsed = {
+        "project_name": "Proyecto",
+        "sections": [],
+    }
+
+    if lines and lines[0].startswith("# "):
+        title = lines[0][2:].strip()
+        prefix = "Observaciones de Calidad - "
+        if title.startswith(prefix):
+            parsed["project_name"] = title[len(prefix):].strip() or "Proyecto"
+
+    current_section = None
+    index = 1
+    while index < len(lines):
+        line = lines[index]
+        if line.startswith("## "):
+            current_section = {"title": line[3:].strip(), "lines": []}
+            parsed["sections"].append(current_section)
+        elif current_section is not None:
+            current_section["lines"].append(line)
+        index += 1
+
+    return parsed
+
+
+def _render_quality_markdown(doc, parsed):
+    for section in parsed.get("sections", []):
+        title = section.get("title", "")
+        lines = section.get("lines", [])
+        _add_styled_heading(doc, title, level=1)
+
+        if title == "Resumen":
+            _render_quality_summary(doc, lines)
+            continue
+
+        _render_markdown_block(doc, lines)
+
+
+def _render_quality_summary(doc, lines):
+    items = []
+    date_value = None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.lower().startswith("fecha de analisis:"):
+            date_value = line.split(":", 1)[1].strip()
+            continue
+
+        match = re.match(r"^-\s+\*\*(.+?):\*\*\s*(.+)$", line)
+        if match:
+            items.append((match.group(1).strip(), _strip_markdown_inline(match.group(2).strip())))
+
+    if date_value:
+        items.append(("Fecha", date_value))
+
+    if items:
+        _add_info_card(doc, items)
+
+
+def _render_markdown_block(doc, lines):
+    index = 0
+    while index < len(lines):
+        raw_line = lines[index]
+        stripped = raw_line.strip()
+
+        if not stripped:
+            index += 1
+            continue
+
+        if stripped == "---":
+            _add_divider(doc)
+            index += 1
+            continue
+
+        if stripped.startswith("### "):
+            _add_styled_heading(doc, _strip_markdown_inline(stripped[4:].strip()), level=2)
+            index += 1
+            continue
+
+        if stripped.startswith("|"):
+            table_lines = []
+            while index < len(lines) and lines[index].strip().startswith("|"):
+                table_lines.append(lines[index].strip())
+                index += 1
+            _render_markdown_table(doc, table_lines)
+            continue
+
+        if stripped.startswith("- "):
+            style = "List Bullet 2" if raw_line.startswith("  - ") else "List Bullet"
+            _add_markdown_bullet(doc, stripped[2:].strip(), style=style)
+            index += 1
+            continue
+
+        text = _strip_markdown_inline(stripped)
+        if text:
+            doc.add_paragraph(text)
+        index += 1
+
+
+def _render_markdown_table(doc, table_lines):
+    if len(table_lines) < 2:
+        return
+
+    headers = _split_markdown_table_row(table_lines[0])
+    rows = []
+    for row_line in table_lines[2:]:
+        rows.append([_strip_markdown_inline(value.replace("<br>", " | ").strip()) for value in _split_markdown_table_row(row_line)])
+
+    if headers:
+        _add_table(doc, [_strip_markdown_inline(header) for header in headers], rows)
+
+
+def _split_markdown_table_row(line):
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def _add_markdown_bullet(doc, text, style="List Bullet"):
+    paragraph = doc.add_paragraph(style=style)
+    segments = re.split(r"(\*\*.*?\*\*)", text)
+    for segment in segments:
+        if not segment:
+            continue
+        is_bold = segment.startswith("**") and segment.endswith("**")
+        content = _strip_markdown_inline(segment)
+        run = paragraph.add_run(content)
+        run.font.size = Pt(10)
+        run.bold = is_bold
+        if style == "List Bullet" and (
+            "⚠" in content or "hardcodeada" in content.lower() or "no tiene" in content.lower()
+        ):
+            run.font.color.rgb = RGBColor(0xDC, 0x26, 0x26)
+
+
+def _strip_markdown_inline(text):
+    cleaned = str(text)
+    cleaned = re.sub(r"</?sub>", "", cleaned)
+    cleaned = cleaned.replace("**", "")
+    cleaned = cleaned.replace("`", "")
+    return cleaned.strip()
 
 
 # ---------------------------------------------------------------------------
@@ -691,6 +862,132 @@ def _add_packages_section(doc, project_data):
         ["Paquete", "Version"],
         [[p["name"], p["version"] or "-"] for p in packages],
     )
+
+
+# ---------------------------------------------------------------------------
+# Secciones ampliadas de Calidad (Priorizacion, Remediacion, Interpretacion)
+# ---------------------------------------------------------------------------
+
+def _add_quality_prioritization_table(doc, prioritization):
+    """Add prioritization findings table to Word document."""
+    findings = prioritization.get("priority_findings", [])
+    source = prioritization.get("source", "heuristic")
+    confidence = prioritization.get("confidence", "media")
+
+    if not findings:
+        doc.add_paragraph("No se detectaron hallazgos priorizables.")
+        return
+
+    # Header info
+    p = doc.add_paragraph()
+    run = p.add_run(f"Fuente de priorizacion: {source} | Confianza: {confidence}")
+    run.font.size = Pt(9)
+    run.font.color.rgb = COLOR_MUTED
+    run.italic = True
+
+    # Table: Severidad | Taskbot | Hallazgo | Por que importa
+    rows = []
+    for finding in findings:
+        task_name = (
+            finding.get("task")
+            or finding.get("taskbot")
+            or finding.get("task_name")
+            or "General"
+        )
+        finding_title = (
+            finding.get("title")
+            or finding.get("hallazgo")
+            or finding.get("finding")
+            or "Hallazgo detectado"
+        )
+        finding_why = (
+            finding.get("why")
+            or finding.get("why_it_matters")
+            or finding.get("reason")
+            or "Sin detalle"
+        )
+        rows.append([
+            finding.get("severity", "medio"),
+            task_name,
+            finding_title,
+            finding_why[:100] + "..." if len(finding_why) > 100 else finding_why,
+        ])
+
+    _add_table(doc, ["Severidad", "Taskbot", "Hallazgo", "Por que importa"], rows)
+
+
+def _add_quality_remediation_table(doc, prioritization):
+    """Add remediation sprint plan table to Word document."""
+    sprint_plan = prioritization.get("sprint_plan", [])
+
+    if not sprint_plan:
+        doc.add_paragraph("No se genero plan de remediacion.")
+        return
+
+    # Table: Prioridad | Accion | Esfuerzo | Impacto | Owner | Taskbots | Criterio de cierre
+    rows = []
+    for item in sprint_plan:
+        tasks = item.get("tasks", [])
+        done_criteria = item.get("done_criteria", [])
+        tasks_value = ", ".join(tasks) if tasks else "General"
+        done_criteria_value = " | ".join(done_criteria) if done_criteria else "Sin criterio"
+
+        rows.append([
+            item.get("priority", "P2"),
+            item.get("action", "Accion pendiente"),
+            item.get("effort", "M"),
+            item.get("impact", ""),
+            item.get("owner", "dev"),
+            tasks_value[:50] + "..." if len(tasks_value) > 50 else tasks_value,
+            done_criteria_value[:50] + "..." if len(done_criteria_value) > 50 else done_criteria_value,
+        ])
+
+    _add_table(
+        doc,
+        ["Prioridad", "Accion", "Esfuerzo", "Impacto", "Owner", "Taskbots", "Criterio de cierre"],
+        rows
+    )
+
+
+def _add_quality_task_interpretations(doc, tasks, task_descriptions):
+    """Add task-by-task functional interpretation to Word document."""
+    taskbots = [task for task in tasks if task.get("type") == "taskbot"]
+
+    if not taskbots:
+        doc.add_paragraph("No se detectaron taskbots para interpretar.")
+        return
+
+    for task in taskbots:
+        task_name = task.get("name", "Taskbot")
+        description = task_descriptions.get(task_name, {})
+
+        _add_styled_heading(doc, task_name, level=2)
+
+        _add_bullet(doc, "Perfil AA360 sugerido", description.get("task_profile", "utilitario"))
+        _add_bullet(doc, "Que hace", description.get("what_it_does", "No disponible"))
+        _add_bullet(doc, "Funcion que cumple", description.get("business_function", "No disponible"))
+        _add_bullet(doc, "Criticidad estimada", description.get("criticality", "media"))
+
+        # Risks
+        risks = description.get("risks", ["Sin riesgos relevantes inferidos."])
+        p = doc.add_paragraph(style="List Bullet")
+        run = p.add_run("Riesgos detectados:")
+        run.bold = True
+        run.font.color.rgb = COLOR_DARK
+        for risk in risks:
+            doc.add_paragraph(risk, style="List Bullet 2")
+
+        # Recommendations
+        recommendations = description.get("recommendations", ["Sin recomendaciones adicionales."])
+        p = doc.add_paragraph(style="List Bullet")
+        run = p.add_run("Mejoras recomendadas:")
+        run.bold = True
+        run.font.color.rgb = COLOR_DARK
+        for recommendation in recommendations:
+            doc.add_paragraph(recommendation, style="List Bullet 2")
+
+        _add_bullet(doc, "Fuente de analisis", description.get("source", "heuristic"))
+        _add_bullet(doc, "Confianza estimada", description.get("confidence", "media"))
 
 
 # ---------------------------------------------------------------------------

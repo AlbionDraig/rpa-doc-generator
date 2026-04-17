@@ -26,11 +26,11 @@ def run_generate_quality(file, settings, logger):
 
         quality_file = output_dir / f"Calidad_{project_data['name']}.md"
         generate_quality_file(project_data, str(quality_file))
+        quality_md_content = quality_file.read_text(encoding="utf-8")
 
         quality_word_file = output_dir / f"Calidad_{project_data['name']}.docx"
-        generate_quality_word(project_data, str(quality_word_file))
+        generate_quality_word(project_data, str(quality_word_file), md_content=quality_md_content)
 
-        quality_md_content = quality_file.read_text(encoding="utf-8")
         quality_pdf_file = output_dir / f"Calidad_{project_data['name']}.pdf"
         generate_quality_pdf(quality_md_content, str(quality_pdf_file), project_data["name"])
 

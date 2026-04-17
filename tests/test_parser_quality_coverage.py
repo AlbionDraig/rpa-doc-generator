@@ -373,6 +373,7 @@ class ParserAndQualityCoverageTests(unittest.TestCase):
         self.assertEqual(sdd_generator._unique_preserve(["A", "A", " ", "B"]), ["A", "B"])
         self.assertEqual(sdd_generator._format_size(1024), "1.0KB")
         self.assertIn("SDD - {name}", sdd_generator._generate_default_template())
+        self.assertIn("Observaciones de Calidad - {name}", sdd_generator._generate_default_quality_template())
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             sdd_out = Path(tmp_dir) / "docs" / "SDD_Demo.md"

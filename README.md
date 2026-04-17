@@ -158,6 +158,60 @@ API disponible en `http://localhost:8000`.
 
 ---
 
+## Personalizacion mediante Templates
+
+La generacion de documentos puede personalizarse sin recompilar el codigo modificando los templates en `app/templates/`:
+
+| Archivo | Customiza | Ejemplo |
+|---------|-----------|---------|
+| `sdd_template.md` | Estructura y seccion del SDD Markdown | Reordenar secciones, cambiar encabezados |
+| `quality_template.md` | Estructura del reporte de calidad Markdown | Agregar nuevas secciones de analisis |
+| `pdf_style.css` | Estilos CSS para PDFs (colores, tipografia) | Cambiar colores corporativos, fuentes |
+| `word_theme.json` | Tema de Word (colores RGB/HEX, espaciado) | Aplicar branding corporativo |
+
+**Ventajas:**
+- Cambios persisten entre despliegues
+- Sin necesidad de modificar codigo Python
+- Fallback automatico si el template no existe o es invalido
+- Versionamiento en git
+
+**Ejemplo: Cambiar colores corporativos en PDF y Word**
+
+1. Editar `app/templates/pdf_style.css`:
+   ```css
+   h1 { border-bottom: 3px solid #YOUR_COLOR; }
+   ```
+
+2. Editar `app/templates/word_theme.json`:
+   ```json
+   "accent": {"rgb": [R, G, B], "hex": "RRGGBB"}
+   ```
+
+Los documentos generados usaran los nuevos colores sin reiniciar la aplicacion.
+
+---
+
+## Calidad y Cobertura
+
+Baseline validado al 2026-04-16:
+
+- Suite automatizada: `78` tests pasando
+- Cobertura total de lineas: `96%`
+- Cobertura destacada:
+  - `app/generator/word_generator.py`: `96%`
+  - `app/application/use_cases/generate_quality.py`: `100%`
+  - `app/analysis/task_ai_describer.py`: `95%`
+
+Comandos usados para validacion:
+
+```bash
+python -m coverage erase
+python -m coverage run -m pytest tests -q
+python -m coverage report -m
+```
+
+---
+
 ## API
 
 ### `GET /`
@@ -341,7 +395,8 @@ rpa-doc-generator/
 │   │   ├── word_generator.py  # Exportacion DOCX
 │   │   └── pdf_generator.py   # Exportacion PDF
 │   ├── templates/
-│   │   └── sdd_template.md    # Plantilla Markdown del SDD
+│   │   ├── sdd_template.md    # Plantilla Markdown del SDD
+│   │   └── quality_template.md # Plantilla Markdown del reporte de calidad
 │   └── static/
 ├── tests/
 │   ├── test_api_structure.py
@@ -355,7 +410,10 @@ rpa-doc-generator/
 │   ├── test_aa360_pipeline.py
 │   ├── test_parser_quality_coverage.py
 │   ├── test_extractor_coverage.py
-│   └── test_task_ai_describer.py
+│   ├── test_task_ai_describer.py
+│   ├── test_template_loading.py
+│   ├── test_quality_content_validation.py
+│   └── test_sdd_content_validation.py
 ├── output/                # Artefactos generados por sesion
 ├── tmp/                   # ZIPs extraidos temporalmente
 ├── requirements.txt

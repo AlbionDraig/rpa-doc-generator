@@ -1,4 +1,5 @@
 import base64
+import json
 import logging
 import re
 from datetime import datetime
@@ -9,7 +10,8 @@ from xhtml2pdf import pisa
 
 logger = logging.getLogger(__name__)
 
-CSS_STYLE = """
+# Default CSS style (fallback if template file missing)
+_DEFAULT_CSS_STYLE = """
 @page {
     size: A4;
     margin: 2cm 2.2cm 2.5cm 2.2cm;
@@ -163,6 +165,23 @@ em {
 """
 
 
+def _load_pdf_style():
+    """Load CSS style from template file with fallback to default."""
+    style_path = Path("app/templates/pdf_style.css")
+    if style_path.exists():
+        try:
+            return style_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            logger.warning("Error loading PDF style template: %s, using default", exc)
+            return _DEFAULT_CSS_STYLE
+    return _DEFAULT_CSS_STYLE
+
+
+def _get_css_style():
+    """Get CSS style for PDF generation."""
+    return _load_pdf_style()
+
+
 _EMOJI_MAP = {
     "📁": "[DIR]",
     "📝": "",
@@ -231,12 +250,13 @@ def generate_sdd_pdf(md_content, output_path, project_name="Proyecto", flow_imag
             )
 
         generated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        css_style = _get_css_style()
 
         full_html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8"/>
-    <style>{CSS_STYLE}</style>
+    <style>{css_style}</style>
 </head>
 <body>
     <p class="cover-subtitle">Documento de Diseno de Software &mdash; Generado el {generated_date}</p>
@@ -273,12 +293,13 @@ def generate_quality_pdf(md_content, output_path, project_name="Proyecto"):
         )
 
         generated_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        css_style = _get_css_style()
 
         full_html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8"/>
-    <style>{CSS_STYLE}</style>
+    <style>{css_style}</style>
 </head>
 <body>
     <p class="cover-subtitle">Reporte de Calidad &mdash; Generado el {generated_date}</p>
