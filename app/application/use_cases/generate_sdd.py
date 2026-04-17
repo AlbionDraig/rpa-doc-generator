@@ -1,6 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import shutil
+import time
 
 from app.analysis.flow_builder import build_flow
 from app.analysis.tree_builder import build_tree
@@ -10,6 +11,7 @@ from app.generator.sdd_generator import generate_sdd, generate_sdd_file
 from app.generator.word_generator import generate_sdd_word
 from app.ingestion.extractor import extract_project
 from app.ingestion.uploader import save_file
+from app.observability import bind_logger, bind_session, reset_session
 from app.parser.project_parser import parse_project
 
 
@@ -18,6 +20,9 @@ def run_generate_sdd(file, settings, logger):
     output_dir = settings.output_dir / session_id
     zip_path = None
     project_path = None
+    started_at = time.perf_counter()
+    session_token = bind_session(session_id)
+    logger = bind_logger(logger, session_id=session_id)
 
     try:
         logger.info("[START] Procesando archivo: %s - Sesion: %s", file.filename, session_id)
@@ -70,7 +75,13 @@ def run_generate_sdd(file, settings, logger):
         if flow_png_file.exists():
             flow_png_file.unlink()
 
-        logger.info("[COMPLETE] Procesamiento finalizado - Sesion: %s", session_id)
+        duration_ms = round((time.perf_counter() - started_at) * 1000, 2)
+        logger.info(
+            "[COMPLETE] Procesamiento finalizado - Sesion: %s - Proyecto: %s - DuracionMs: %s",
+            session_id,
+            project_data["name"],
+            duration_ms,
+        )
         return {
             "status": "success",
             "session_id": session_id,
@@ -84,6 +95,7 @@ def run_generate_sdd(file, settings, logger):
             "output_directory": str(output_dir),
         }
     finally:
+        reset_session(session_token)
         if project_path:
             shutil.rmtree(Path(project_path), ignore_errors=True)
         if zip_path:

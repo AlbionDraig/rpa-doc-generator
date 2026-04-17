@@ -12,14 +12,12 @@ from app.api.routes.generate import router as generate_router
 from app.api.routes.quality import router as quality_router
 from app.api.routes.system import router as system_router
 from app.application.settings import AppSettings
+from app.observability import ObservabilityMiddleware, configure_logging
 
 load_dotenv()
 settings = AppSettings.from_env()
 
-logging.basicConfig(
-    level=getattr(logging, settings.app_log_level.upper(), logging.INFO),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+configure_logging(settings)
 logger = logging.getLogger(__name__)
 
 def create_app():
@@ -33,6 +31,8 @@ def create_app():
 
     app_instance.state.settings = settings
     app_instance.state.logger = logger
+
+    app_instance.add_middleware(ObservabilityMiddleware, logger=logger)
 
     app_instance.add_middleware(
         CORSMiddleware,

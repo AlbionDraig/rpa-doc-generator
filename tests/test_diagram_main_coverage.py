@@ -5,11 +5,16 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Mapping, cast
 from unittest.mock import patch
 import types
 
+from fastapi import Request
+
 from app.generator import diagram_generator
 from app import main as main_module
+from app.api.deps import get_logger
+from app.observability import ContextLoggerAdapter, ObservabilityMiddleware
 
 
 class _DummyDrawing:
@@ -111,6 +116,29 @@ class DiagramAndMainCoverageTests(unittest.TestCase):
                 self.assertTrue(custom_settings.output_dir.exists())
                 self.assertTrue(custom_settings.tmp_dir.exists())
                 self.assertEqual(app_instance.state.settings.app_title, "RPA Doc Generator")
+                self.assertTrue(
+                    any(layer.cls is ObservabilityMiddleware for layer in app_instance.user_middleware)
+                )
+
+    def test_get_logger_returns_context_adapter(self):
+        base_logger = SimpleNamespace(info=lambda *args, **kwargs: None)
+        request = cast(
+            Request,
+            SimpleNamespace(
+                app=SimpleNamespace(state=SimpleNamespace(logger=base_logger)),
+                state=SimpleNamespace(request_id="req-123"),
+                method="POST",
+                url=SimpleNamespace(path="/generate/"),
+            ),
+        )
+
+        logger = get_logger(request)
+        extra = cast(Mapping[str, object], logger.extra)
+
+        self.assertIsInstance(logger, ContextLoggerAdapter)
+        self.assertEqual(extra["request_id"], "req-123")
+        self.assertEqual(extra["http_method"], "POST")
+        self.assertEqual(extra["http_path"], "/generate/")
 
     def test_main_dunder_main_runs_uvicorn(self):
         calls = []
