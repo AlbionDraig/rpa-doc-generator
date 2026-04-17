@@ -12,7 +12,7 @@
 
 ---
 
-## 2. Resumen Ejecutivo
+## 2. Resumen Ejecutivo (AI)
 {executive_summary}
 
 ---
@@ -57,7 +57,7 @@
 
 ---
 
-## 11. Puntos Criticos del Bot
+## 11. Puntos Criticos del Bot (AI)
 {critical_points}
 
 ---

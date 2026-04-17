@@ -325,7 +325,7 @@ def _generate_toc(project_data):
 
     lines = [
         "1. [Informacion General](#1-informacion-general)",
-        "2. [Resumen Ejecutivo](#2-resumen-ejecutivo)",
+        "2. [Resumen Ejecutivo (AI)](#2-resumen-ejecutivo-ai)",
         "3. [Estadisticas del Proyecto](#3-estadisticas-del-proyecto)",
         "4. [Flujo Principal Entre Taskbots](#4-flujo-principal-entre-taskbots)",
         "5. [Contrato de Dependencias](#5-contrato-de-dependencias)",
@@ -339,7 +339,7 @@ def _generate_toc(project_data):
         "8. [Credenciales y Vaults](#8-credenciales-y-vaults)",
         "9. [Sistemas Externos y Configuracion Tecnica](#9-sistemas-externos-y-configuracion-tecnica)",
         "10. [Paquetes AA360 Detectados](#10-paquetes-aa360-detectados)",
-        "11. [Puntos Criticos del Bot](#11-puntos-criticos-del-bot)",
+        "11. [Puntos Criticos del Bot (AI)](#11-puntos-criticos-del-bot-ai)",
         "12. [Estructura del Proyecto](#12-estructura-del-proyecto)",
     ])
     return "\n".join(lines)
@@ -633,7 +633,7 @@ def _generate_default_template():
 ## 1. Informacion General
 {overview}
 
-## 2. Resumen Ejecutivo
+## 2. Resumen Ejecutivo (AI)
 {executive_summary}
 
 ## 3. Estadisticas del Proyecto
@@ -660,7 +660,7 @@ def _generate_default_template():
 ## 10. Paquetes AA360 Detectados
 {packages_section}
 
-## 11. Puntos Criticos del Bot
+## 11. Puntos Criticos del Bot (AI)
 {critical_points}
 
 ## 12. Estructura del Proyecto
@@ -694,15 +694,15 @@ Fecha de analisis: {generated_date}
 
 {findings}
 
-## Priorizacion Inteligente de Hallazgos
+## Priorizacion Inteligente de Hallazgos (AI)
 
 {priority_section}
 
-## Plan de Remediacion por Sprint
+## Plan de Remediacion por Sprint (AI)
 
 {sprint_plan_section}
 
-## Interpretacion funcional por Taskbot
+## Interpretacion funcional por Taskbot (AI)
 
 {interpretation_section}
 

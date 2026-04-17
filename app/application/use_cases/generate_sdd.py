@@ -89,7 +89,7 @@ def run_generate_sdd(file, settings, logger):
         generate_sdd_file(project_data, tree, str(sdd_file), flow, flow_visual, settings=settings)
 
         sdd_word_file = output_dir / f"SDD_{project_data['name']}.docx"
-        generate_sdd_word(project_data, tree, str(sdd_word_file), flow, str(flow_png_file))
+        generate_sdd_word(project_data, tree, str(sdd_word_file), flow, str(flow_png_file), settings=settings)
 
         sdd_pdf_file = output_dir / f"SDD_{project_data['name']}.pdf"
         generate_sdd_pdf(sdd, str(sdd_pdf_file), project_data["name"], str(flow_png_file))

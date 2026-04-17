@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from app.analysis.task_ai_describer import build_sdd_ai_insights
 from docx import Document
 from docx.shared import Pt, Cm, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -60,7 +61,7 @@ COLOR_TEXT = RGBColor(*_theme_colors["text"]["rgb"])
 COLOR_MUTED = RGBColor(*_theme_colors["muted"]["rgb"])
 
 
-def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_path=None):
+def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_path=None, settings=None):
     """Genera el documento SDD en formato Word (.docx) con estilo profesional."""
     try:
         doc = Document()
@@ -69,6 +70,7 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
         name = project_data.get("name", "Proyecto sin nombre")
         metadata = project_data.get("metadata", {})
         tasks = project_data.get("tasks", [])
+        sdd_ai_insights = build_sdd_ai_insights(project_data, flow, settings=settings)
 
         # Cover page
         _add_cover_page(doc, name, metadata)
@@ -83,12 +85,16 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
         _add_styled_heading(doc, "1. Informacion General", level=1)
         _add_overview(doc, project_data, flow)
 
-        # 2. Estadisticas del Proyecto
-        _add_styled_heading(doc, "2. Estadisticas del Proyecto", level=1)
+        # 2. Resumen Ejecutivo (AI)
+        _add_styled_heading(doc, "2. Resumen Ejecutivo (AI)", level=1)
+        _add_ai_insights_section(doc, sdd_ai_insights, key="executive_summary")
+
+        # 3. Estadisticas del Proyecto
+        _add_styled_heading(doc, "3. Estadisticas del Proyecto", level=1)
         _add_stats(doc, project_data, flow)
 
-        # 3. Flujo Principal Entre Taskbots
-        _add_styled_heading(doc, "3. Flujo Principal Entre Taskbots", level=1)
+        # 4. Flujo Principal Entre Taskbots
+        _add_styled_heading(doc, "4. Flujo Principal Entre Taskbots", level=1)
         if flow_image_path and Path(flow_image_path).exists():
             p = doc.add_paragraph()
             p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -105,32 +111,36 @@ def generate_sdd_word(project_data, tree, output_path, flow=None, flow_image_pat
         else:
             doc.add_paragraph("No se genero una imagen del flujo para esta ejecucion.")
 
-        # 4. Contrato de Dependencias
-        _add_styled_heading(doc, "4. Contrato de Dependencias", level=1)
+        # 5. Contrato de Dependencias
+        _add_styled_heading(doc, "5. Contrato de Dependencias", level=1)
         _add_dependency_contracts(doc, tasks)
 
-        # 5. Inventario de Taskbots
-        _add_styled_heading(doc, "5. Inventario de Taskbots", level=1)
+        # 6. Inventario de Taskbots
+        _add_styled_heading(doc, "6. Inventario de Taskbots", level=1)
         _add_task_inventory(doc, tasks)
 
-        # 6. Contrato de Variables
-        _add_styled_heading(doc, "6. Contrato de Variables", level=1)
+        # 7. Contrato de Variables
+        _add_styled_heading(doc, "7. Contrato de Variables", level=1)
         _add_variables_section(doc, tasks)
 
-        # 7. Credenciales y Vaults
-        _add_styled_heading(doc, "7. Credenciales y Vaults", level=1)
+        # 8. Credenciales y Vaults
+        _add_styled_heading(doc, "8. Credenciales y Vaults", level=1)
         _add_credentials_section(doc, project_data)
 
-        # 8. Sistemas Externos
-        _add_styled_heading(doc, "8. Sistemas Externos y Configuracion Tecnica", level=1)
+        # 9. Sistemas Externos
+        _add_styled_heading(doc, "9. Sistemas Externos y Configuracion Tecnica", level=1)
         _add_systems_section(doc, project_data)
 
-        # 9. Paquetes AA360
-        _add_styled_heading(doc, "9. Paquetes AA360 Detectados", level=1)
+        # 10. Paquetes AA360
+        _add_styled_heading(doc, "10. Paquetes AA360 Detectados", level=1)
         _add_packages_section(doc, project_data)
 
-        # 10. Estructura del Proyecto
-        _add_styled_heading(doc, "10. Estructura del Proyecto", level=1)
+        # 11. Puntos Criticos del Bot (AI)
+        _add_styled_heading(doc, "11. Puntos Criticos del Bot (AI)", level=1)
+        _add_ai_insights_section(doc, sdd_ai_insights, key="critical_points")
+
+        # 12. Estructura del Proyecto
+        _add_styled_heading(doc, "12. Estructura del Proyecto", level=1)
         _add_tree_block(doc, tree)
 
         # Footer divider
@@ -487,6 +497,24 @@ def _add_bullet(doc, label, value):
     run_label.font.size = Pt(10)
     run_value = p.add_run(str(value))
     run_value.font.size = Pt(10)
+
+
+def _add_ai_insights_section(doc, insights, key):
+    values = insights.get(key, [])
+    source = insights.get("source", "heuristic")
+    confidence = insights.get("confidence", "media")
+
+    _add_bullet(doc, "Fuente de analisis", source)
+    _add_bullet(doc, "Confianza estimada", confidence)
+
+    if not values:
+        doc.add_paragraph("No se generaron resultados para esta seccion.")
+        return
+
+    for value in values:
+        paragraph = doc.add_paragraph(style="List Bullet")
+        run = paragraph.add_run(str(value))
+        run.font.size = Pt(10)
 
 
 def _add_table(doc, headers, rows):

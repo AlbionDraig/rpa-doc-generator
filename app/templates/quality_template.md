@@ -11,15 +11,15 @@ Fecha de analisis: {generated_date}
 
 {findings}
 
-## Priorizacion Inteligente de Hallazgos
+## Priorizacion Inteligente de Hallazgos (AI)
 
 {priority_section}
 
-## Plan de Remediacion por Sprint
+## Plan de Remediacion por Sprint (AI)
 
 {sprint_plan_section}
 
-## Interpretacion funcional por Taskbot
+## Interpretacion funcional por Taskbot (AI)
 
 {interpretation_section}
 
