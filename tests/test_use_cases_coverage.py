@@ -80,7 +80,7 @@ class UseCasesCoverageTests(unittest.TestCase):
             extracted_dir = Path(temp_dir) / "demo"
             extracted_dir.mkdir(parents=True, exist_ok=True)
 
-            def fake_generate_quality_file(_project_data, output_path):
+            def fake_generate_quality_file(_project_data, output_path, settings=None):
                 Path(output_path).write_text("# Calidad", encoding="utf-8")
 
             with patch("app.application.use_cases.generate_quality.datetime", _FixedDateTime), patch(

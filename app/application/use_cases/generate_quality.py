@@ -18,14 +18,14 @@ def run_generate_quality(file, settings, logger):
 
     try:
         logger.info("[QUALITY-START] Procesando archivo: %s - Sesion: %s", file.filename, session_id)
-        zip_path = save_file(file)
-        project_path = extract_project(zip_path)
+        zip_path = save_file(file, settings=settings)
+        project_path = extract_project(zip_path, settings=settings)
         project_data = parse_project(project_path)
 
         output_dir.mkdir(parents=True, exist_ok=True)
 
         quality_file = output_dir / f"Calidad_{project_data['name']}.md"
-        generate_quality_file(project_data, str(quality_file))
+        generate_quality_file(project_data, str(quality_file), settings=settings)
         quality_md_content = quality_file.read_text(encoding="utf-8")
 
         quality_word_file = output_dir / f"Calidad_{project_data['name']}.docx"

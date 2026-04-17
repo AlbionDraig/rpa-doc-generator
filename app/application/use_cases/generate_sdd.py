@@ -22,10 +22,10 @@ def run_generate_sdd(file, settings, logger):
     try:
         logger.info("[START] Procesando archivo: %s - Sesion: %s", file.filename, session_id)
         logger.info("[1/7] Guardando archivo...")
-        zip_path = save_file(file)
+        zip_path = save_file(file, settings=settings)
 
         logger.info("[2/7] Extrayendo contenido...")
-        project_path = extract_project(zip_path)
+        project_path = extract_project(zip_path, settings=settings)
 
         logger.info("[3/7] Analizando estructura...")
         project_data = parse_project(project_path)
@@ -56,10 +56,10 @@ def run_generate_sdd(file, settings, logger):
         )
 
         logger.info("[7/7] Generando documentacion...")
-        sdd = generate_sdd(project_data, tree, flow, flow_visual)
+        sdd = generate_sdd(project_data, tree, flow, flow_visual, settings=settings)
 
         sdd_file = output_dir / f"SDD_{project_data['name']}.md"
-        generate_sdd_file(project_data, tree, str(sdd_file), flow, flow_visual)
+        generate_sdd_file(project_data, tree, str(sdd_file), flow, flow_visual, settings=settings)
 
         sdd_word_file = output_dir / f"SDD_{project_data['name']}.docx"
         generate_sdd_word(project_data, tree, str(sdd_word_file), flow, str(flow_png_file))

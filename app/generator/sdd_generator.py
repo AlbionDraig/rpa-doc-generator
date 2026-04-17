@@ -11,14 +11,14 @@ from app.analysis.task_ai_describer import (
 
 logger = logging.getLogger(__name__)
 
-def generate_sdd(project_data, tree, flow=None, flow_visual=None):
+def generate_sdd(project_data, tree, flow=None, flow_visual=None, settings=None):
     """
     Genera el documento SDD en Markdown a partir del modelo AA360 ya parseado.
     """
     try:
         template = _load_template()
         tasks = project_data.get("tasks", [])
-        sdd_ai_insights = build_sdd_ai_insights(project_data, flow)
+        sdd_ai_insights = build_sdd_ai_insights(project_data, flow, settings=settings)
 
         rendered = template.format(
             name=project_data.get("name", "Proyecto sin nombre"),
@@ -45,12 +45,12 @@ def generate_sdd(project_data, tree, flow=None, flow_visual=None):
         raise
 
 
-def generate_sdd_file(project_data, tree, output_path, flow=None, flow_visual=None):
+def generate_sdd_file(project_data, tree, output_path, flow=None, flow_visual=None, settings=None):
     """
     Genera el SDD y lo guarda en un archivo.
     """
     try:
-        sdd_content = generate_sdd(project_data, tree, flow, flow_visual)
+        sdd_content = generate_sdd(project_data, tree, flow, flow_visual, settings=settings)
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -397,13 +397,13 @@ def _generate_dependency_contracts(tasks):
     return "\n".join(sections).rstrip()
 
 
-def _generate_quality_observations(project_data):
+def _generate_quality_observations(project_data, settings=None):
     """Genera observaciones de calidad como documento independiente."""
     tasks = project_data.get("tasks", [])
     project_name = project_data.get("name", "Proyecto")
     template = _load_quality_template()
     observations = []
-    task_descriptions = build_quality_task_descriptions(tasks)
+    task_descriptions = build_quality_task_descriptions(tasks, settings=settings)
 
     # Nodos deshabilitados
     for task in tasks:
@@ -473,7 +473,12 @@ def _generate_quality_observations(project_data):
         body = "\n".join(f"- {obs}" for obs in observations)
 
     interpretation_section = _generate_task_interpretation_section(tasks, task_descriptions)
-    prioritization = build_quality_prioritization(project_data, task_descriptions, observations)
+    prioritization = build_quality_prioritization(
+        project_data,
+        task_descriptions,
+        observations,
+        settings=settings,
+    )
     priority_section = _generate_priority_findings_section(prioritization)
     sprint_plan_section = _generate_sprint_plan_section(prioritization)
 
@@ -567,10 +572,10 @@ def _generate_task_interpretation_section(tasks, task_descriptions):
     return "\n".join(lines).rstrip()
 
 
-def generate_quality_file(project_data, output_path):
+def generate_quality_file(project_data, output_path, settings=None):
     """Genera el reporte de calidad y lo guarda en un archivo."""
     try:
-        content = _generate_quality_observations(project_data)
+        content = _generate_quality_observations(project_data, settings=settings)
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 

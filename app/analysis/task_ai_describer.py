@@ -1,17 +1,14 @@
 import json
 import logging
-import os
 import re
 from urllib import request, error
 
-from dotenv import load_dotenv
+from app.application.settings import AppSettings
 
 logger = logging.getLogger(__name__)
 
-load_dotenv()
 
-
-def describe_task_with_ai(task):
+def describe_task_with_ai(task, settings=None):
     """
     Describe functional intent and quality-oriented insights for one taskbot.
 
@@ -19,10 +16,12 @@ def describe_task_with_ai(task):
         dict with keys: task_profile, what_it_does, business_function,
         criticality, risks, recommendations, confidence, source
     """
-    if not _is_ai_enabled():
+    runtime_settings = settings or AppSettings.from_env()
+
+    if not _is_ai_enabled(runtime_settings):
         return _heuristic_description(task)
 
-    provider_config = _resolve_ai_provider_config()
+    provider_config = _resolve_ai_provider_config(runtime_settings)
     api_key = provider_config["api_key"]
     if not api_key:
         logger.info("AI quality enabled but provider API key is missing. Using heuristic fallback.")
@@ -30,7 +29,7 @@ def describe_task_with_ai(task):
 
     model = provider_config["model"]
     base_url = provider_config["base_url"]
-    timeout = _safe_timeout(os.getenv("AI_TIMEOUT_SECONDS", "25"))
+    timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
     prompt = _build_prompt(task)
     payload = {
@@ -98,12 +97,12 @@ def describe_task_with_ai(task):
         return _heuristic_description(task)
 
 
-def build_quality_task_descriptions(tasks):
+def build_quality_task_descriptions(tasks, settings=None):
     descriptions = {}
     for task in tasks:
         if task.get("type") != "taskbot":
             continue
-        descriptions[task.get("name", "Taskbot")] = describe_task_with_ai(task)
+        descriptions[task.get("name", "Taskbot")] = describe_task_with_ai(task, settings=settings)
     return descriptions
 
 
@@ -111,24 +110,26 @@ def classify_task_for_aa360(task):
     return _infer_task_profile(task)
 
 
-def build_sdd_ai_insights(project_data, flow=None):
+def build_sdd_ai_insights(project_data, flow=None, settings=None):
     """
     Build AI-enhanced SDD insights.
 
     Returns:
         dict with keys: executive_summary, critical_points, source, confidence
     """
-    if not _is_ai_enabled():
+    runtime_settings = settings or AppSettings.from_env()
+
+    if not _is_ai_enabled(runtime_settings):
         return _heuristic_sdd_insights(project_data, flow)
 
-    provider_config = _resolve_ai_provider_config()
+    provider_config = _resolve_ai_provider_config(runtime_settings)
     api_key = provider_config["api_key"]
     if not api_key:
         return _heuristic_sdd_insights(project_data, flow)
 
     model = provider_config["model"]
     base_url = provider_config["base_url"]
-    timeout = _safe_timeout(os.getenv("AI_TIMEOUT_SECONDS", "25"))
+    timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
     prompt = _build_sdd_prompt(project_data, flow)
     payload = {
@@ -187,24 +188,26 @@ def build_sdd_ai_insights(project_data, flow=None):
         return _heuristic_sdd_insights(project_data, flow)
 
 
-def build_quality_prioritization(project_data, task_descriptions, observations):
+def build_quality_prioritization(project_data, task_descriptions, observations, settings=None):
     """
     Build prioritized findings and a sprint remediation plan.
 
     Returns:
         dict with keys: priority_findings, sprint_plan, source, confidence
     """
-    if not _is_ai_enabled():
+    runtime_settings = settings or AppSettings.from_env()
+
+    if not _is_ai_enabled(runtime_settings):
         return _heuristic_prioritization(task_descriptions, observations)
 
-    provider_config = _resolve_ai_provider_config()
+    provider_config = _resolve_ai_provider_config(runtime_settings)
     api_key = provider_config["api_key"]
     if not api_key:
         return _heuristic_prioritization(task_descriptions, observations)
 
     model = provider_config["model"]
     base_url = provider_config["base_url"]
-    timeout = _safe_timeout(os.getenv("AI_TIMEOUT_SECONDS", "25"))
+    timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
     prompt = _build_prioritization_prompt(project_data, task_descriptions, observations)
     payload = {
@@ -257,25 +260,25 @@ def build_quality_prioritization(project_data, task_descriptions, observations):
         return _heuristic_prioritization(task_descriptions, observations)
 
 
-def _is_ai_enabled():
-    return os.getenv("AI_QUALITY_ENABLED", "false").strip().lower() in {"1", "true", "yes", "on"}
+def _is_ai_enabled(settings):
+    return bool(settings.ai_quality_enabled)
 
 
-def _resolve_ai_provider_config():
-    groq_api_key = os.getenv("GROQ_API_KEY", "").strip()
+def _resolve_ai_provider_config(settings):
+    groq_api_key = settings.groq_api_key
     if groq_api_key:
         return {
             "provider": "groq",
             "api_key": groq_api_key,
-            "model": os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile",
-            "base_url": os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/"),
+            "model": settings.groq_model,
+            "base_url": settings.groq_base_url,
         }
 
     return {
         "provider": "openai-compatible",
-        "api_key": os.getenv("OPENAI_API_KEY", "").strip(),
-        "model": os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini",
-        "base_url": os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
+        "api_key": settings.openai_api_key,
+        "model": settings.openai_model,
+        "base_url": settings.openai_base_url,
     }
 
 

@@ -1,18 +1,22 @@
 import logging
-import os
 import zipfile
 from pathlib import Path
 
+from app.application.settings import AppSettings
+
 logger = logging.getLogger(__name__)
 
-MAX_EXTRACTION_SIZE = int(os.getenv("MAX_EXTRACTION_SIZE", str(1024 * 1024 * 1024)))
+MAX_EXTRACTION_SIZE = 1024 * 1024 * 1024
 
 
-def extract_project(zip_path):
+def extract_project(zip_path, settings=None):
     """
     Extrae de forma segura el contenido del ZIP del bot.
     """
     try:
+        runtime_settings = settings or AppSettings.from_env()
+        max_extraction_size = runtime_settings.max_extraction_size if settings else MAX_EXTRACTION_SIZE
+
         zip_path = Path(zip_path)
         if not zip_path.exists():
             logger.error("Archivo ZIP no encontrado: %s", zip_path)
@@ -31,9 +35,9 @@ def extract_project(zip_path):
             for member in zip_ref.infolist():
                 _validate_member_path(member.filename, extract_path)
                 total_uncompressed_size += max(0, int(member.file_size or 0))
-                if total_uncompressed_size > MAX_EXTRACTION_SIZE:
+                if total_uncompressed_size > max_extraction_size:
                     raise ValueError(
-                        f"El contenido extraido supera el limite permitido ({MAX_EXTRACTION_SIZE} bytes)"
+                        f"El contenido extraido supera el limite permitido ({max_extraction_size} bytes)"
                     )
                 zip_ref.extract(member, extract_path)
 

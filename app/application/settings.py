@@ -33,6 +33,17 @@ class AppSettings:
     static_dir: Path
     cors_origins: list[str]
     public_base_url: str
+    upload_chunk_size: int
+    max_file_size: int
+    max_extraction_size: int
+    ai_quality_enabled: bool
+    ai_timeout_seconds: int
+    groq_api_key: str
+    groq_model: str
+    groq_base_url: str
+    openai_api_key: str
+    openai_model: str
+    openai_base_url: str
 
     @classmethod
     def from_env(cls):
@@ -56,4 +67,15 @@ class AppSettings:
                 "http://localhost,http://localhost:3000,http://localhost:8000,http://127.0.0.1,http://127.0.0.1:3000",
             ),
             public_base_url=os.getenv("PUBLIC_BASE_URL", f"http://localhost:{app_port}").rstrip("/"),
+            upload_chunk_size=_env_int("UPLOAD_CHUNK_SIZE", str(1024 * 1024)),
+            max_file_size=_env_int("MAX_FILE_SIZE", str(500 * 1024 * 1024)),
+            max_extraction_size=_env_int("MAX_EXTRACTION_SIZE", str(1024 * 1024 * 1024)),
+            ai_quality_enabled=_env_bool("AI_QUALITY_ENABLED", "false"),
+            ai_timeout_seconds=_env_int("AI_TIMEOUT_SECONDS", "25"),
+            groq_api_key=os.getenv("GROQ_API_KEY", "").strip(),
+            groq_model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip() or "llama-3.3-70b-versatile",
+            groq_base_url=os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1").rstrip("/"),
+            openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+            openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini",
+            openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
         )
