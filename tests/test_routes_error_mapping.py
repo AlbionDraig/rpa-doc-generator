@@ -50,16 +50,22 @@ class RoutesErrorMappingTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as ctx:
                 self._run(generate(file_obj, request))
             self.assertEqual(ctx.exception.status_code, 400)
+            self.assertIsInstance(ctx.exception.detail, dict)
+            self.assertEqual(ctx.exception.detail["code"], "validation_error")
 
         with patch("app.api.routes.generate.run_generate_sdd", side_effect=FileNotFoundError("x")):
             with self.assertRaises(HTTPException) as ctx:
                 self._run(generate(file_obj, request))
             self.assertEqual(ctx.exception.status_code, 404)
+            self.assertIsInstance(ctx.exception.detail, dict)
+            self.assertEqual(ctx.exception.detail["code"], "not_found")
 
         with patch("app.api.routes.generate.run_generate_sdd", side_effect=RuntimeError("boom")):
             with self.assertRaises(HTTPException) as ctx:
                 self._run(generate(file_obj, request))
             self.assertEqual(ctx.exception.status_code, 500)
+            self.assertIsInstance(ctx.exception.detail, dict)
+            self.assertEqual(ctx.exception.detail["code"], "internal_error")
 
     def test_quality_maps_known_errors(self):
         request = SimpleNamespace(app=self._request_with_settings(tempfile.gettempdir()))
@@ -69,16 +75,22 @@ class RoutesErrorMappingTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as ctx:
                 self._run(quality(file_obj, request))
             self.assertEqual(ctx.exception.status_code, 400)
+            self.assertIsInstance(ctx.exception.detail, dict)
+            self.assertEqual(ctx.exception.detail["code"], "validation_error")
 
         with patch("app.api.routes.quality.run_generate_quality", side_effect=FileNotFoundError("x")):
             with self.assertRaises(HTTPException) as ctx:
                 self._run(quality(file_obj, request))
             self.assertEqual(ctx.exception.status_code, 404)
+            self.assertIsInstance(ctx.exception.detail, dict)
+            self.assertEqual(ctx.exception.detail["code"], "not_found")
 
         with patch("app.api.routes.quality.run_generate_quality", side_effect=RuntimeError("boom")):
             with self.assertRaises(HTTPException) as ctx:
                 self._run(quality(file_obj, request))
             self.assertEqual(ctx.exception.status_code, 500)
+            self.assertIsInstance(ctx.exception.detail, dict)
+            self.assertEqual(ctx.exception.detail["code"], "internal_error")
 
     def test_download_maps_errors_and_success(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -88,6 +100,7 @@ class RoutesErrorMappingTests(unittest.TestCase):
                 with self.assertRaises(HTTPException) as ctx:
                     self._run(download_file("s1", "invalid", request))
                 self.assertEqual(ctx.exception.status_code, 400)
+                self.assertEqual(ctx.exception.detail["code"], "invalid_file_type")
 
             with patch(
                 "app.api.routes.download.resolve_download_file",
@@ -96,11 +109,13 @@ class RoutesErrorMappingTests(unittest.TestCase):
                 with self.assertRaises(HTTPException) as ctx:
                     self._run(download_file("s1", "sdd", request))
                 self.assertEqual(ctx.exception.status_code, 404)
+                self.assertEqual(ctx.exception.detail["code"], "not_found")
 
             with patch("app.api.routes.download.resolve_download_file", side_effect=RuntimeError("boom")):
                 with self.assertRaises(HTTPException) as ctx:
                     self._run(download_file("s1", "sdd", request))
                 self.assertEqual(ctx.exception.status_code, 500)
+                self.assertEqual(ctx.exception.detail["code"], "internal_error")
 
             session_dir = Path(temp_dir) / "s1"
             session_dir.mkdir(parents=True, exist_ok=True)

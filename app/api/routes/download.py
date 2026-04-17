@@ -1,13 +1,22 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
+from app.api.contracts import ApiErrorResponse
 from app.api.deps import get_logger, get_settings
+from app.api.errors import build_http_error
 from app.application.use_cases.download_artifact import resolve_download_file
 
 router = APIRouter()
 
 
-@router.get("/download/{session_id}/{file_type}")
+@router.get(
+    "/download/{session_id}/{file_type}",
+    responses={
+        400: {"model": ApiErrorResponse, "description": "Tipo de archivo invalido"},
+        404: {"model": ApiErrorResponse, "description": "Archivo no encontrado"},
+        500: {"model": ApiErrorResponse, "description": "Error interno"},
+    },
+)
 async def download_file(session_id: str, file_type: str, request: Request):
     settings = get_settings(request)
     logger = get_logger(request)
@@ -17,11 +26,11 @@ async def download_file(session_id: str, file_type: str, request: Request):
         file_path = resolve_download_file(output_dir, file_type)
         if file_path is None:
             logger.warning("[WARNING] Tipo de archivo invalido: %s", file_type)
-            raise HTTPException(status_code=400, detail="Tipo de archivo invalido")
+            raise build_http_error(400, "Tipo de archivo invalido", "invalid_file_type")
 
         if not file_path.exists():
             logger.warning("[WARNING] Archivo no encontrado: %s - Sesion: %s", file_type, session_id)
-            raise HTTPException(status_code=404, detail="Archivo no encontrado")
+            raise build_http_error(404, "Archivo no encontrado", "not_found")
 
         logger.info("[DOWNLOAD] %s - Sesion: %s", file_type, session_id)
         return FileResponse(
@@ -33,4 +42,4 @@ async def download_file(session_id: str, file_type: str, request: Request):
         raise
     except Exception as exc:
         logger.error("[ERROR] Descargando archivo: %s - Sesion: %s", exc, session_id)
-        raise HTTPException(status_code=500, detail="Error al descargar archivo") from exc
+        raise build_http_error(500, "Error al descargar archivo", "internal_error") from exc

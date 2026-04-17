@@ -1,23 +1,26 @@
-from fastapi import APIRouter, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Request, UploadFile
 
+from app.api.contracts import ApiErrorResponse, ArtifactGenerationResponse
 from app.api.deps import get_logger, get_settings
+from app.api.errors import map_exception_to_http
 from app.application.use_cases.generate_quality import run_generate_quality
 
 router = APIRouter()
 
 
-@router.post("/quality/")
+@router.post(
+    "/quality/",
+    response_model=ArtifactGenerationResponse,
+    responses={
+        400: {"model": ApiErrorResponse, "description": "Error de validacion"},
+        404: {"model": ApiErrorResponse, "description": "Archivo no encontrado"},
+        500: {"model": ApiErrorResponse, "description": "Error interno"},
+    },
+)
 async def quality(file: UploadFile, request: Request):
     settings = get_settings(request)
     logger = get_logger(request)
     try:
         return run_generate_quality(file, settings, logger)
-    except ValueError as exc:
-        logger.error("[ERROR] Validacion: %s", exc)
-        raise HTTPException(status_code=400, detail=f"Error de validacion: {exc}") from exc
-    except FileNotFoundError as exc:
-        logger.error("[ERROR] Archivo no encontrado: %s", exc)
-        raise HTTPException(status_code=404, detail=f"No encontrado: {exc}") from exc
     except Exception as exc:
-        logger.error("[ERROR] Inesperado: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error interno: {exc}") from exc
+        raise map_exception_to_http(exc, logger, prefix="quality") from exc
