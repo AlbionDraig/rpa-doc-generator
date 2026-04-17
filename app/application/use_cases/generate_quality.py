@@ -13,6 +13,22 @@ from app.parser.project_parser import parse_project
 
 
 def run_generate_quality(file, settings, logger):
+    """Generate quality/code review report for an RPA project.
+    
+    Analyzes code structure and generates findings with prioritization and remediation plan.
+    Creates Markdown, DOCX, and PDF quality reports.
+    
+    Args:
+        file: UploadFile object from FastAPI (ZIP file containing the bot).
+        settings: AppSettings instance with runtime configuration.
+        logger: Logger instance for tracking progress.
+    
+    Returns:
+        Dictionary with generated report paths and session metadata.
+    
+    Raises:
+        ValueError: If file validation or extraction fails.
+    """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     output_dir = settings.output_dir / session_id
     zip_path = None

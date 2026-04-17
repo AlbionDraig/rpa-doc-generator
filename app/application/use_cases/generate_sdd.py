@@ -16,6 +16,28 @@ from app.parser.project_parser import parse_project
 
 
 def run_generate_sdd(file, settings, logger):
+    """Generate SDD (Software Design Document) for an RPA project.
+    
+    Orchestrates the complete pipeline:
+    1. Save uploaded ZIP file
+    2. Extract project contents
+    3. Parse project structure (taskbots, nodes, variables, metadata)
+    4. Build task dependency flow
+    5. Generate file tree
+    6. Create SVG flow diagram and convert to PNG
+    7. Generate SDD in Markdown, DOCX, and PDF formats
+    
+    Args:
+        file: UploadFile object from FastAPI (ZIP file).
+        settings: AppSettings instance with runtime configuration.
+        logger: Logger instance for tracking progress.
+    
+    Returns:
+        Dictionary with status and generated artifacts.
+    
+    Raises:
+        ValueError: If file is not a ZIP or exceeds size limits.
+    """
     session_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     output_dir = settings.output_dir / session_id
     zip_path = None

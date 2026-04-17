@@ -3,6 +3,20 @@
 Guia tecnica interna de RPA Doc Generator.
 Para instalacion, ejecucion y uso de la API ver [README.md](README.md).
 
+**Nota importante:** Consulta [API_DOCUMENTATION.md](API_DOCUMENTATION.md) para documentacion completa de todas las funciones, clases y modulos públicos, incluyendo ejemplos de uso, contratos de entrada/salida y manejo de errores.
+
+---
+
+## Índice
+
+1. [Arquitectura de Módulos](#arquitectura-de-modulos)
+2. [Pipeline Técnico](#pipeline-tecnico-detallado)
+3. [Templates y Personalización](#templates)
+4. [Paridad de Contenido](#paridad-de-contenido-markdown-vs-word)
+5. [Tests](#tests)
+6. [Docstrings y Convenciones](#docstrings-y-convenciones)
+7. [Puntos de Extensión](#puntos-de-extension)
+
 ---
 
 ## Arquitectura de modulos
@@ -349,12 +363,91 @@ Cobertura de referencia (abril 2026, despues de ampliar tests de API/Application
 
 ---
 
-## Convenciones
+## Docstrings y Convenciones de Código
 
-- Propagar errores de validacion con `ValueError` y mensaje claro; FastAPI los captura como `400`.
-- No loguear valores de credenciales, tokens ni rutas de usuario.
-- Nombres de secciones y campos en los documentos generados en espanol (consistencia con clientes).
-- Mantener funciones de generacion puras: reciben dicts, retornan strings.
+Todos los módulos públicos (funciones, clases) incluyen docstrings descriptivos que documentan:
+
+### Formato de Docstring (Google Style)
+
+Se utiliza el formato **Google Style** para docstrings en Python:
+
+```python
+def parse_project(path: str) -> dict:
+    """Parse an RPA Automation Anywhere 360 project.
+    
+    Discovers taskbots, extracts variables, nodes, and metadata.
+    Handles both manifest-based and heuristic discovery.
+    
+    Args:
+        path: Absolute path to the project directory.
+        
+    Returns:
+        Dictionary with keys:
+            - name (str): Project name
+            - tasks (list): Taskbot details
+            - systems (list): External systems
+            - credentials (list): Detected credentials
+            - metadata (dict): Project metadata
+            
+    Raises:
+        ValueError: If path does not exist or is not a valid project.
+        json.JSONDecodeError: If manifest.json is malformed.
+        
+    Example:
+        >>> project = parse_project("/path/to/bot")
+        >>> print(project["tasks"])
+        [{"name": "Main", "path": "..."}]
+    """
+```
+
+### Documentación por Capa
+
+| Capa | Archivos | Documentación |
+|------|----------|---------------|
+| **API Routes** | `app/api/routes/*.py` | HTTP endpoints con request/response schemas |
+| **Application** | `app/application/use_cases/*.py` | Casos de uso con procesos orquestados |
+| **Parser** | `app/parser/_*.py`, `project_parser.py` | Parsers con detalles de nodos AA360 |
+| **Analysis** | `app/analysis/*.py` | Análisis de flujo y calidad |
+| **Generator** | `app/generator/*.py` | Exportadores con formatos (Markdown, DOCX, PDF) |
+| **Ingestion** | `app/ingestion/*.py` | Upload/extraction con validaciones |
+
+### Funciones Clave Documentadas
+
+**Parser:**
+- `parse_project()` — entrada principal del parser
+- `extract_variables_from_xml()` — extrae variables input/output
+- `analyze_nodes()` — analiza nodos AA360
+
+**Analysis:**
+- `build_flow()` — construye grafo de dependencias
+- `build_tree()` — genera árbol de directorios
+- `describe_task_with_ai()` — interpreta taskbot con IA
+- `build_quality_prioritization()` — prioriza hallazgos
+
+**Generator:**
+- `generate_sdd()` — genera Markdown del SDD
+- `generate_sdd_word()` — exporta a DOCX
+- `generate_sdd_pdf()` — exporta a PDF
+- `generate_quality_file()` — genera reporte de calidad
+- `generate_flow_svg()` — genera diagrama SVG
+
+**Ingestion:**
+- `save_file()` — guarda archivo subido
+- `extract_project()` — extrae ZIP de forma segura
+
+### Referencia Rápida: API Documentation
+
+Para detalles completos sobre **todas** las funciones públicas, parámetros, retornos y ejemplos:
+
+📖 **[API_DOCUMENTATION.md](API_DOCUMENTATION.md)**
+
+Incluye:
+- Descripción de cada endpoint HTTP
+- Esquemas de request/response
+- Funciones de cada caso de uso
+- Modelos de datos (inputs/outputs)
+- Ejemplos de uso
+- Códigos de error
 
 ---
 
@@ -362,8 +455,23 @@ Cobertura de referencia (abril 2026, despues de ampliar tests de API/Application
 
 | Que agregar | Donde |
 |-------------|-------|
-| Nueva heuristica de calidad | `sdd_generator._generate_quality_observations` |
-| Nuevo detector de sistemas externos | `project_parser._extract_systems_from_node` |
-| Nuevo detector de credenciales | `project_parser._extract_credential_from_node` |
+| Nueva heuristica de calidad | `sdd_generator._generate_quality_observations` o `task_ai_describer._heuristic_*` |
+| Nuevo detector de sistemas externos | `app/parser/_node_analysis.py:extract_systems_from_node()` |
+| Nuevo detector de credenciales | `app/parser/_node_analysis.py:extract_credential_from_node()` |
 | Nuevo formato de exportacion | Nuevo adapter en `app/generator/` + use case en `app/application/use_cases/` + endpoint en `app/api/routes/` |
 | Nuevo tipo de descarga | Resolver en `app/application/use_cases/download_artifact.py` |
+| Personalizar colores Word | Editar `app/templates/word_theme.json` (sin recompilar) |
+| Personalizar estilos PDF | Editar `app/templates/pdf_style.css` (sin recompilar) |
+| Personalizar estructura SDD | Editar `app/templates/sdd_template.md` (sin recompilar) |
+| Personalizar reporte de Calidad | Editar `app/templates/quality_template.md` (sin recompilar) |
+| Integrar nuevo proveedor de IA | Actualizar `task_ai_describer._resolve_ai_provider_config()` y prompts correspondientes |
+| Agregar nueva métrica de calidad | Extender `build_quality_prioritization()` con nuevos criterios de severidad/prioridad |
+
+---
+
+## Convenciones
+
+- Propagar errores de validacion con `ValueError` y mensaje claro; FastAPI los captura como `400`.
+- No loguear valores de credenciales, tokens ni rutas de usuario.
+- Nombres de secciones y campos en los documentos generados en espanol (consistencia con clientes).
+- Mantener funciones de generacion puras: reciben dicts, retornan strings.
