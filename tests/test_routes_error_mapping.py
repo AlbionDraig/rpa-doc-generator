@@ -42,6 +42,18 @@ class _DummyLimiter:
         return self._DummySlot()
 
 
+class _DummyLimiterBusy:
+    class _DummySlot:
+        async def __aenter__(self):
+            return False
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+    def slot(self):
+        return self._DummySlot()
+
+
 class RoutesErrorMappingTests(unittest.TestCase):
     def _run(self, coro):
         return asyncio.run(coro)
@@ -61,6 +73,29 @@ class RoutesErrorMappingTests(unittest.TestCase):
                         settings=settings,
                         logger=_DummyLogger(),
                         generation_limiter=_DummyLimiter(),
+                    )
+                ),
+                state=SimpleNamespace(request_id="test-request-id"),
+                method="POST",
+                url=SimpleNamespace(path="/test"),
+            ),
+        )
+
+    def _request_with_busy_limiter(self, output_dir):
+        settings = SimpleNamespace(
+            output_dir=Path(output_dir),
+            app_title="RPA Doc Generator",
+            app_version="1.0.0",
+            public_base_url="http://localhost:8000",
+        )
+        return cast(
+            Request,
+            SimpleNamespace(
+                app=SimpleNamespace(
+                    state=SimpleNamespace(
+                        settings=settings,
+                        logger=_DummyLogger(),
+                        generation_limiter=_DummyLimiterBusy(),
                     )
                 ),
                 state=SimpleNamespace(request_id="test-request-id"),
@@ -164,6 +199,26 @@ class RoutesErrorMappingTests(unittest.TestCase):
         self.assertTrue(root_payload["docs"].endswith("/docs"))
         self.assertEqual(health_payload["status"], "healthy")
         self.assertEqual(health_payload["version"], "1.0.0")
+
+    def test_generate_returns_503_when_capacity_is_exhausted(self):
+        request = self._request_with_busy_limiter(tempfile.gettempdir())
+        file_obj = self._upload()
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._run(generate(file_obj, request))
+
+        self.assertEqual(ctx.exception.status_code, 503)
+        self.assertEqual(self._detail_code(ctx.exception), "capacity_exceeded")
+
+    def test_quality_returns_503_when_capacity_is_exhausted(self):
+        request = self._request_with_busy_limiter(tempfile.gettempdir())
+        file_obj = self._upload()
+
+        with self.assertRaises(HTTPException) as ctx:
+            self._run(quality(file_obj, request))
+
+        self.assertEqual(ctx.exception.status_code, 503)
+        self.assertEqual(self._detail_code(ctx.exception), "capacity_exceeded")
 
 
 if __name__ == "__main__":

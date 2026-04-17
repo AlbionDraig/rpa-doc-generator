@@ -1,5 +1,8 @@
 # RPA Doc Generator
 
+[![CI](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml)
+![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+
 Generador automatico de documentacion tecnica para bots de Automation Anywhere 360.
 
 Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de calidad en Markdown, Word y PDF, mas un diagrama SVG del flujo entre taskbots.
@@ -198,10 +201,10 @@ Los documentos generados usaran los nuevos colores sin reiniciar la aplicacion.
 
 ## Calidad y Cobertura
 
-Baseline validado al 2026-04-16:
+Baseline validado al 2026-04-17:
 
-- Suite automatizada: `78` tests pasando
-- Cobertura total de lineas: `96%`
+- Suite automatizada: `96` tests pasando
+- Cobertura total de lineas: `98%`
 - Cobertura destacada:
   - `app/generator/word_generator.py`: `96%`
   - `app/application/use_cases/generate_quality.py`: `100%`
