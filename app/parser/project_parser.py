@@ -1,43 +1,37 @@
-import json
 import logging
 import os
-import re
-from collections import Counter
 from pathlib import Path
-from urllib.parse import unquote
-import xml.etree.ElementTree as ET
+
+from app.parser import _documents, _node_analysis, _project_support
+from app.parser._common import (
+    HEADER_COMMENT_PREFIXES,
+    METADATA_DIR_FRAGMENT,
+    SENSITIVE_FIELD_PATTERN,
+    TASKBOT_CONTENT_TYPE,
+    TASKBOT_HINT_KEYS,
+    UI_NOISE_KEYS,
+    URL_CREDENTIAL_PATTERN,
+    WINDOWS_PATH_PATTERN,
+    WINDOWS_USER_PATH_PATTERN,
+    _extract_comment_text as _extract_comment_text_impl,
+    _extract_value_literal as _extract_value_literal_impl,
+    _flatten_attribute_values as _flatten_attribute_values_impl,
+    _get_attribute as _get_attribute_impl,
+    _get_attribute_string as _get_attribute_string_impl,
+    _is_header_comment as _is_header_comment_impl,
+    _load_json as _load_json_impl,
+    _load_manifest as _load_manifest_impl,
+    _looks_like_taskbot as _looks_like_taskbot_impl,
+    _normalize_path_text as _normalize_path_text_impl,
+    _normalize_repository_path as _normalize_repository_path_impl,
+    _sanitize_mapping as _sanitize_mapping_impl,
+    _sanitize_packages as _sanitize_packages_impl,
+    _sanitize_triggers as _sanitize_triggers_impl,
+    _should_skip_file as _should_skip_file_impl,
+    sanitize_text as sanitize_text_impl,
+)
 
 logger = logging.getLogger(__name__)
-
-TASKBOT_CONTENT_TYPE = "application/vnd.aa.taskbot"
-METADATA_DIR_FRAGMENT = "metadata"
-SENSITIVE_FIELD_PATTERN = re.compile(
-    r"(password|passwd|pwd|token|secret|api[_-]?key|authorization)",
-    re.IGNORECASE,
-)
-URL_CREDENTIAL_PATTERN = re.compile(
-    r"([?&](?:user|username|password|pwd)=)([^&]+)",
-    re.IGNORECASE,
-)
-WINDOWS_USER_PATH_PATTERN = re.compile(r"([A-Za-z]:\\Users\\)([^\\]+)")
-WINDOWS_PATH_PATTERN = re.compile(r"^[A-Za-z]:\\")
-TASKBOT_HINT_KEYS = {"nodes", "variables", "packages", "properties"}
-UI_NOISE_KEYS = {
-    "blob",
-    "outerHTML",
-    "innerHTML",
-    "criteria",
-    "capture",
-    "thumbnailMetadataPath",
-    "screenshotMetadataPath",
-}
-HEADER_COMMENT_PREFIXES = {
-    "developer": "developer",
-    "fecha": "date",
-    "date": "date",
-    "descripcion": "description",
-    "description": "description",
-}
 
 
 def parse_project(path):
@@ -106,76 +100,19 @@ def parse_project(path):
 
 
 def _load_manifest(project_root):
-    manifest_path = project_root / "manifest.json"
-    if not manifest_path.exists():
-        return {}
-
-    try:
-        with open(manifest_path, "r", encoding="utf-8") as file_obj:
-            return json.load(file_obj)
-    except json.JSONDecodeError as exc:
-        logger.warning("No fue posible parsear manifest.json: %s", exc)
-        return {}
+    return _load_manifest_impl(project_root, logger)
 
 
 def _discover_task_entries(project_root, manifest):
-    entries = []
-
-    manifest_files = manifest.get("files", []) if isinstance(manifest, dict) else []
-    for entry in manifest_files:
-        if entry.get("contentType") != TASKBOT_CONTENT_TYPE:
-            continue
-
-        relative_path = entry.get("path")
-        if not relative_path:
-            continue
-
-        file_path = project_root / Path(relative_path)
-        if file_path.exists():
-            entries.append(entry)
-
-    if entries:
-        return entries
-
-    for file_path in project_root.rglob("*"):
-        if not file_path.is_file():
-            continue
-        if _should_skip_file(file_path):
-            continue
-
-        relative_path = str(file_path.relative_to(project_root))
-        if _looks_like_taskbot(file_path):
-            entries.append(
-                {
-                    "path": relative_path,
-                    "manualDependencies": [],
-                    "scannedDependencies": [],
-                    "contentType": TASKBOT_CONTENT_TYPE,
-                }
-            )
-
-    return entries
+    return _project_support.discover_task_entries(project_root, manifest)
 
 
 def _should_skip_file(file_path):
-    path_parts = {part.lower() for part in file_path.parts}
-    if any(METADATA_DIR_FRAGMENT in part for part in path_parts):
-        return True
-
-    if file_path.suffix.lower() in {".jar", ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".class"}:
-        return True
-
-    return False
+    return _should_skip_file_impl(file_path)
 
 
 def _looks_like_taskbot(file_path):
-    try:
-        with open(file_path, "r", encoding="utf-8") as file_obj:
-            data = json.load(file_obj)
-    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
-        return False
-
-    return isinstance(data, dict) and TASKBOT_HINT_KEYS.issubset(data.keys())
+    return _looks_like_taskbot_impl(file_path)
 
 
 def _parse_task_entry(project_root, entry):
@@ -201,86 +138,25 @@ def _parse_task_entry(project_root, entry):
 
 
 def _parse_taskbot(task_path, project_root, data, manifest_entry):
-    relative_path = str(task_path.relative_to(project_root))
-    header = _extract_header_metadata(data.get("nodes", []))
-    node_analysis = _analyze_nodes(data.get("nodes", []))
-    variables = _extract_taskbot_variables(data.get("variables", []))
-    dependencies = _merge_dependencies(manifest_entry, node_analysis["task_calls"])
-    role = _detect_role(relative_path, task_path.name)
-
-    return {
-        "name": task_path.name,
-        "path": relative_path,
-        "type": "taskbot",
-        "role": role,
-        "size": task_path.stat().st_size,
-        "description": header.get("description", ""),
-        "developer": header.get("developer", ""),
-        "declared_date": header.get("date", ""),
-        "variables": variables,
-        "packages": _sanitize_packages(data.get("packages", [])),
-        "properties": _sanitize_mapping(data.get("properties", {})),
-        "triggers": _sanitize_triggers(data.get("triggers", [])),
-        "dependencies": dependencies,
-        "task_calls": node_analysis["task_calls"],
-        "actions": node_analysis["actions"],
-        "node_stats": node_analysis["stats"],
-        "error_handling": node_analysis["error_handling"],
-        "systems": node_analysis["systems"],
-        "credentials": node_analysis["credentials"],
-        "comments": node_analysis["comments"],
-    }
+    return _project_support.parse_taskbot(
+        task_path,
+        project_root,
+        data,
+        manifest_entry,
+        extract_header_metadata=_extract_header_metadata,
+        analyze_nodes=_analyze_nodes,
+        extract_taskbot_variables=_extract_taskbot_variables,
+        merge_dependencies=_merge_dependencies,
+        detect_role=_detect_role,
+    )
 
 
 def _extract_header_metadata(nodes):
-    metadata = {}
-
-    for node in nodes[:10]:
-        if node.get("commandName") != "Comment":
-            continue
-
-        comment = _extract_comment_text(node)
-        if not comment:
-            continue
-
-        match = re.match(r"^\s*([^:]+)\s*:\s*(.+?)\s*$", comment)
-        if not match:
-            continue
-
-        key = match.group(1).strip().lower()
-        value = sanitize_text(match.group(2).strip(), field_name=key)
-        mapped_key = HEADER_COMMENT_PREFIXES.get(key)
-        if mapped_key:
-            metadata[mapped_key] = value
-
-    return metadata
+    return _node_analysis.extract_header_metadata(nodes)
 
 
 def _extract_taskbot_variables(variables):
-    result = {"input": [], "output": [], "internal": []}
-
-    for variable in variables:
-        if not isinstance(variable, dict):
-            continue
-
-        default_value = _extract_value_literal(variable.get("defaultValue"))
-        variable_info = {
-            "name": variable.get("name", "N/A"),
-            "type": variable.get("type", "UNKNOWN"),
-            "description": sanitize_text(variable.get("description", "")),
-            "default": sanitize_text(default_value, field_name=variable.get("name")),
-            "read_only": bool(variable.get("readOnly", False)),
-            "scope": _infer_variable_scope(variable.get("name", "")),
-        }
-
-        if variable.get("input"):
-            result["input"].append(variable_info)
-        if variable.get("output"):
-            result["output"].append(variable_info)
-        if not variable.get("input") and not variable.get("output"):
-            result["internal"].append(variable_info)
-
-    return result
+    return _node_analysis.extract_taskbot_variables(variables, infer_variable_scope=_infer_variable_scope)
 
 
 def _infer_variable_scope(variable_name):
@@ -297,817 +173,160 @@ def _infer_variable_scope(variable_name):
 
 
 def _analyze_nodes(nodes):
-    analysis = {
-        "actions": [],
-        "task_calls": [],
-        "systems": [],
-        "credentials": [],
-        "comments": [],
-        "stats": {
-            "total_nodes": 0,
-            "disabled_nodes": 0,
-            "decision_nodes": 0,
-            "loop_nodes": 0,
-            "task_calls": 0,
-            "error_handlers": 0,
-            "step_groups": 0,
-        },
-        "error_handling": {
-            "has_try": False,
-            "has_catch": False,
-            "has_finally": False,
-        },
-    }
-    seen_systems = set()
-
-    for node in nodes:
-        _visit_node(node, analysis, seen_systems, depth=0)
-
-    return analysis
+    return _node_analysis.analyze_nodes(
+        nodes,
+        extract_task_call=_extract_task_call,
+        summarize_node=_summarize_node,
+        should_keep_summary=_should_keep_summary,
+    )
 
 
 def _visit_node(node, analysis, seen_systems, depth):
-    if not isinstance(node, dict):
-        return
-
-    command_name = str(node.get("commandName", ""))
-    package_name = str(node.get("packageName", ""))
-    normalized_command = command_name.lower()
-    normalized_package = package_name.lower()
-
-    analysis["stats"]["total_nodes"] += 1
-    if node.get("disabled"):
-        analysis["stats"]["disabled_nodes"] += 1
-    if normalized_command == "if" or normalized_package == "if":
-        analysis["stats"]["decision_nodes"] += 1
-    if normalized_command.startswith("loop") or normalized_package == "loop":
-        analysis["stats"]["loop_nodes"] += 1
-    if normalized_command == "runtask":
-        analysis["stats"]["task_calls"] += 1
-    if normalized_package == "errorhandler" or normalized_command in {"try", "catch", "finally"}:
-        analysis["stats"]["error_handlers"] += 1
-    if normalized_command == "step":
-        analysis["stats"]["step_groups"] += 1
-
-    if normalized_command == "try":
-        analysis["error_handling"]["has_try"] = True
-    if normalized_command == "catch":
-        analysis["error_handling"]["has_catch"] = True
-    if normalized_command == "finally":
-        analysis["error_handling"]["has_finally"] = True
-
-    comment_text = _extract_comment_text(node)
-    if comment_text and not _is_header_comment(comment_text):
-        analysis["comments"].append(comment_text)
-
-    summary = _summarize_node(node, depth)
-    if summary and _should_keep_summary(node, depth):
-        analysis["actions"].append(summary)
-
-    if normalized_command == "runtask":
-        task_call = _extract_task_call(node)
-        if task_call:
-            analysis["task_calls"].append(task_call)
-
-    for system in _extract_systems_from_node(node):
-        signature = (system["type"], system["value"])
-        if signature not in seen_systems:
-            seen_systems.add(signature)
-            analysis["systems"].append(system)
-
-    credential = _extract_credential_from_node(node)
-    if credential:
-        analysis["credentials"].append(credential)
-
-    for child in node.get("children", []):
-        _visit_node(child, analysis, seen_systems, depth + 1)
-
-    for branch in node.get("branches", []):
-        _visit_node(branch, analysis, seen_systems, depth + 1)
+    return _node_analysis.visit_node(
+        node,
+        analysis,
+        seen_systems,
+        depth,
+        extract_task_call=_extract_task_call,
+        summarize_node=_summarize_node,
+        should_keep_summary=_should_keep_summary,
+    )
 
 
 def _should_keep_summary(node, depth):
-    if depth == 0:
-        return True
-
-    command = str(node.get("commandName", "")).lower()
-    return command in {
-        "step",
-        "runtask",
-        "if",
-        "try",
-        "catch",
-        "finally",
-        "openbrowser",
-        "connect",
-        "exporttodatatable",
-        "insertupdatedelete",
-        "logtofile",
-        "capturewindow",
-    }
+    return _node_analysis.should_keep_summary(node, depth)
 
 
 def _summarize_node(node, depth):
-    command = str(node.get("commandName", ""))
-    package = str(node.get("packageName", ""))
-    normalized_command = command.lower()
-    normalized_package = package.lower()
-
-    if normalized_command == "comment":
-        text = _extract_comment_text(node)
-        if text and not _is_header_comment(text):
-            return text
-        return None
-
-    if normalized_command == "step":
-        title = _get_attribute_string(node, "title")
-        if title:
-            return f"Grupo: {title}"
-        return "Grupo de pasos"
-
-    if normalized_command == "runtask":
-        task_call = _extract_task_call(node)
-        if not task_call:
-            return "Invoca una subtask"
-        return (
-            f"Invoca subtask {task_call['target_name']} "
-            f"({len(task_call['inputs'])} entradas, {len(task_call['outputs'])} salidas)"
-        )
-
-    if normalized_command == "if":
-        return f"Decision condicional en {package or 'If'}"
-
-    if normalized_command.startswith("loop") or normalized_package == "loop":
-        return "Iteracion o reintento"
-
-    if normalized_command == "try":
-        return "Inicio de bloque de manejo de errores"
-    if normalized_command == "catch":
-        return "Captura y trata errores"
-    if normalized_command == "finally":
-        return "Ejecuta acciones de cierre"
-
-    if normalized_package == "database":
-        if normalized_command == "connect":
-            return "Abre conexion a base de datos"
-        if normalized_command == "exporttodatatable":
-            return "Consulta registros desde base de datos"
-        if normalized_command == "insertupdatedelete":
-            return "Actualiza informacion en base de datos"
-        if normalized_command == "disconnect":
-            return "Cierra conexion a base de datos"
-
-    if normalized_package == "browser":
-        if normalized_command == "openbrowser":
-            return "Abre el navegador y navega al sitio objetivo"
-        if normalized_command == "close":
-            return "Cierra el navegador o una pestana"
-
-    if normalized_package == "logtofile":
-        return "Registra trazas en archivo de log"
-
-    if normalized_package == "recorder":
-        return "Interactua con la interfaz web capturada"
-
-    if normalized_package == "screen" and normalized_command == "capturewindow":
-        return "Captura evidencia de pantalla"
-
-    if depth == 0 and (command or package):
-        return f"Ejecuta {package or 'comando'}::{command}"
-
-    return None
+    return _node_analysis.summarize_node(node, depth, extract_task_call=_extract_task_call)
 
 
 def _extract_task_call(node):
-    taskbot_attribute = _get_attribute(node, "taskbot")
-    if not taskbot_attribute:
-        return None
-
-    taskbot_file = (
-        taskbot_attribute.get("taskbotFile", {}).get("string")
-        or taskbot_attribute.get("taskbotFile", {}).get("expression")
-        or ""
-    )
-    target_path = _normalize_repository_path(taskbot_file)
-
-    input_dictionary = taskbot_attribute.get("taskbotInput", {}).get("dictionary", [])
-    return_dictionary = node.get("returnTo", {}).get("dictionary", [])
-
-    return {
-        "target_path": target_path,
-        "target_name": Path(target_path).name if target_path else "subtask",
-        "inputs": [
-            {
-                "name": item.get("key", "N/A"),
-                "value": sanitize_text(_extract_value_literal(item.get("value")), field_name=item.get("key")),
-            }
-            for item in input_dictionary
-            if isinstance(item, dict)
-        ],
-        "outputs": [
-            {
-                "name": item.get("key", "N/A"),
-                "value": sanitize_text(item.get("value", {}).get("variableName", ""), field_name=item.get("key")),
-            }
-            for item in return_dictionary
-            if isinstance(item, dict)
-        ],
-    }
+    return _node_analysis.extract_task_call(node)
 
 
 def _merge_dependencies(manifest_entry, task_calls):
-    dependencies = []
-    seen_paths = set()
-
-    for task_call in task_calls:
-        dependency_path = _normalize_path_text(task_call.get("target_path", ""))
-        if not dependency_path or dependency_path in seen_paths:
-            continue
-        seen_paths.add(dependency_path)
-        dependencies.append(
-            {
-                "path": dependency_path,
-                "name": Path(dependency_path).name,
-                "type": "runTask",
-            }
-        )
-
-    for dependency_type, key in (("manual", "manualDependencies"), ("scanned", "scannedDependencies")):
-        for dependency_path in manifest_entry.get(key, []) or []:
-            normalized_path = _normalize_path_text(dependency_path)
-            if not normalized_path or normalized_path in seen_paths:
-                continue
-            seen_paths.add(normalized_path)
-            dependencies.append(
-                {
-                    "path": normalized_path,
-                    "name": Path(normalized_path).name,
-                    "type": dependency_type,
-                }
-            )
-
-    return dependencies
+    return _project_support.merge_dependencies(manifest_entry, task_calls)
 
 
 def _detect_role(relative_path, task_name):
-    normalized_path = relative_path.replace("/", "\\").lower()
-    if task_name.lower() == "main":
-        return "main"
-    if "\\tareas\\" in normalized_path or "\\subtasks\\" in normalized_path:
-        return "subtask"
-    return "taskbot"
+    return _project_support.detect_role(relative_path, task_name)
 
 
 def _mark_entrypoints(tasks):
-    if not tasks:
-        return tasks
-
-    inbound = Counter()
-    task_paths = {task["path"] for task in tasks}
-
-    for task in tasks:
-        for dependency in task.get("dependencies", []):
-            dependency_path = _normalize_path_text(dependency.get("path", ""))
-            if dependency_path in task_paths:
-                inbound[dependency_path] += 1
-
-    for task in tasks:
-        task["is_entrypoint"] = (
-            task.get("role") == "main"
-            or inbound.get(task["path"], 0) == 0
-        )
-
-    return tasks
+    return _project_support.mark_entrypoints(tasks)
 
 
 def _build_manifest_summary(manifest):
-    if not manifest:
-        return {}
-
-    files = manifest.get("files", [])
-    packages = manifest.get("packages", [])
-    taskbot_files = [
-        file_info.get("path", "")
-        for file_info in files
-        if file_info.get("contentType") == TASKBOT_CONTENT_TYPE
-    ]
-
-    return {
-        "taskbot_files": taskbot_files,
-        "package_count": len(packages),
-        "packages": _sanitize_packages(packages),
-        "file_count": len(files),
-    }
+    return _project_support.build_manifest_summary(manifest)
 
 
 def _collect_project_packages(manifest_summary, tasks):
-    packages_by_name = {}
-
-    for package in manifest_summary.get("packages", []):
-        packages_by_name[package["name"]] = package
-
-    for task in tasks:
-        for package in task.get("packages", []):
-            packages_by_name[package["name"]] = package
-
-    return sorted(packages_by_name.values(), key=lambda item: item["name"].lower())
+    return _project_support.collect_project_packages(manifest_summary, tasks)
 
 
 def _collect_project_systems(tasks):
-    systems = []
-    seen = set()
-
-    for task in tasks:
-        for system in task.get("systems", []):
-            signature = (system["type"], system["value"])
-            if signature in seen:
-                continue
-            seen.add(signature)
-            systems.append(system)
-
-    return sorted(systems, key=lambda item: (item["type"], item["value"]))
+    return _project_support.collect_project_systems(tasks)
 
 
 def _collect_project_credentials(tasks):
-    credentials = []
-    seen = set()
-
-    for task in tasks:
-        for credential in task.get("credentials", []):
-            signature = (credential["credential_name"], credential.get("attribute", ""))
-            if signature in seen:
-                continue
-            seen.add(signature)
-            credentials.append(credential)
-
-    return sorted(credentials, key=lambda item: (item.get("vault", ""), item["credential_name"]))
+    return _project_support.collect_project_credentials(tasks)
 
 
 def _select_project_description(tasks):
-    for task in tasks:
-        description = task.get("description")
-        if description:
-            return description
-    return "Documentacion auto-generada del bot RPA"
+    return _project_support.select_project_description(tasks)
 
 
 def _build_file_summary(project_root, manifest, tasks):
-    xml_count = 0
-    json_count = 1 if manifest else 0
-    other_count = 0
-    task_paths = {task["path"] for task in tasks}
-
-    for file_path in project_root.rglob("*"):
-        if not file_path.is_file() or _should_skip_file(file_path):
-            continue
-
-        if file_path.name == "manifest.json":
-            continue
-
-        relative_path = str(file_path.relative_to(project_root))
-        if file_path.suffix.lower() == ".xml":
-            xml_count += 1
-        elif file_path.suffix.lower() == ".json":
-            json_count += 1
-        elif relative_path not in task_paths:
-            other_count += 1
-
-    return {
-        "xml_count": xml_count,
-        "json_count": json_count,
-        "taskbot_count": len(tasks),
-        "manifest_count": 1 if manifest else 0,
-        "other_count": other_count,
-    }
+    return _project_support.build_file_summary(project_root, manifest, tasks)
 
 
 def _sanitize_packages(packages):
-    sanitized = []
-    for package in packages:
-        if not isinstance(package, dict):
-            continue
-        sanitized.append(
-            {
-                "name": sanitize_text(package.get("name", "")),
-                "version": sanitize_text(package.get("version", "")),
-            }
-        )
-    return sanitized
+    return _sanitize_packages_impl(packages)
 
 
 def _sanitize_triggers(triggers):
-    sanitized = []
-    for trigger in triggers:
-        if not isinstance(trigger, dict):
-            continue
-        sanitized.append(_sanitize_mapping(trigger))
-    return sanitized
+    return _sanitize_triggers_impl(triggers)
 
 
 def _sanitize_mapping(mapping):
-    if not isinstance(mapping, dict):
-        return {}
-
-    sanitized = {}
-    for key, value in mapping.items():
-        if isinstance(value, dict):
-            sanitized[key] = _sanitize_mapping(value)
-        elif isinstance(value, list):
-            sanitized[key] = [
-                _sanitize_mapping(item) if isinstance(item, dict) else sanitize_text(item, field_name=key)
-                for item in value
-            ]
-        else:
-            sanitized[key] = sanitize_text(value, field_name=key)
-
-    return sanitized
+    return _sanitize_mapping_impl(mapping)
 
 
 def sanitize_text(value, field_name=None):
-    if value is None:
-        return ""
-
-    if isinstance(value, bool):
-        return str(value).lower()
-
-    text = str(value)
-    if not text:
-        return ""
-
-    if field_name and SENSITIVE_FIELD_PATTERN.search(field_name):
-        return "<redacted>"
-
-    text = URL_CREDENTIAL_PATTERN.sub(r"\1<redacted>", text)
-    text = WINDOWS_USER_PATH_PATTERN.sub(r"\1<user>", text)
-
-    if text.startswith("jdbc:"):
-        return _sanitize_jdbc_url(text)
-
-    if text.startswith("file://"):
-        file_target = text[len("file://") :]
-        return f"file://{_sanitize_local_path(file_target)}"
-
-    if WINDOWS_PATH_PATTERN.match(text):
-        return _sanitize_local_path(text)
-
-    if SENSITIVE_FIELD_PATTERN.search(text):
-        return "<redacted>"
-
-    return text
-
-
-def _sanitize_jdbc_url(text):
-    return URL_CREDENTIAL_PATTERN.sub(r"\1<redacted>", text)
-
-
-def _sanitize_local_path(path_text):
-    return WINDOWS_USER_PATH_PATTERN.sub(r"\1<user>", path_text)
+    return sanitize_text_impl(value, field_name=field_name)
 
 
 def _extract_credential_from_node(node):
-    """Extrae informacion de credenciales de un nodo CredentialVault."""
-    command = str(node.get("commandName", "")).lower()
-    package = str(node.get("packageName", "")).lower()
-
-    if "credential" not in package:
-        return None
-
-    credential_name = ""
-    attribute_name = ""
-    vault_name = ""
-
-    for attr in node.get("attributes", []):
-        if not isinstance(attr, dict):
-            continue
-        attr_name = str(attr.get("name", "")).lower()
-        attr_value = _extract_value_literal(attr.get("value"))
-        attr_str = str(attr_value).strip() if attr_value else ""
-
-        if attr_name in {"credentialname", "credential", "name"}:
-            credential_name = attr_str
-        elif attr_name in {"attributename", "attribute"}:
-            attribute_name = attr_str
-        elif attr_name in {"lockername", "locker", "vault", "vaultname"}:
-            vault_name = attr_str
-
-    if not credential_name:
-        return None
-
-    return {
-        "credential_name": credential_name,
-        "attribute": attribute_name,
-        "vault": vault_name,
-        "source": f"{package}::{command}",
-    }
+    return _node_analysis.extract_credential_from_node(node)
 
 
 def _extract_systems_from_node(node):
-    systems = []
-    command = str(node.get("commandName", "")).lower()
-    package = str(node.get("packageName", "")).lower()
-
-    for attribute in node.get("attributes", []):
-        if not isinstance(attribute, dict):
-            continue
-
-        attribute_name = str(attribute.get("name", ""))
-        if attribute_name.lower() in {"query", "uiobject", "windowtitle"}:
-            continue
-
-        for value in _flatten_attribute_values(attribute.get("value")):
-            if not value:
-                continue
-
-            if value.startswith("jdbc:"):
-                systems.append(
-                    {
-                        "type": "database",
-                        "value": sanitize_text(value, field_name=attribute_name),
-                        "source": f"{package or 'command'}::{command or attribute_name}",
-                    }
-                )
-            elif value.startswith("http://") or value.startswith("https://"):
-                systems.append(
-                    {
-                        "type": "url",
-                        "value": sanitize_text(value, field_name=attribute_name),
-                        "source": f"{package or 'command'}::{command or attribute_name}",
-                    }
-                )
-            elif value.startswith("file://") or WINDOWS_PATH_PATTERN.match(value):
-                systems.append(
-                    {
-                        "type": "file",
-                        "value": sanitize_text(value, field_name=attribute_name),
-                        "source": f"{package or 'command'}::{command or attribute_name}",
-                    }
-                )
-
-    if package == "database" and command in {"exporttodatatable", "insertupdatedelete"}:
-        systems.append({"type": "database", "value": "Operacion SQL", "source": f"{package}::{command}"})
-
-    return systems
+    return _node_analysis.extract_systems_from_node(node)
 
 
 def _flatten_attribute_values(value, parent_key=None):
-    if value is None:
-        return []
-
-    if isinstance(value, dict):
-        flattened = []
-        for key, nested_value in value.items():
-            if key in UI_NOISE_KEYS:
-                continue
-            if key in {"string", "expression"} and nested_value:
-                flattened.append(str(nested_value))
-            else:
-                flattened.extend(_flatten_attribute_values(nested_value, parent_key=key))
-        return flattened
-
-    if isinstance(value, list):
-        flattened = []
-        for item in value:
-            flattened.extend(_flatten_attribute_values(item, parent_key=parent_key))
-        return flattened
-
-    if isinstance(value, str):
-        return [] if len(value) > 500 else [value]
-
-    return [str(value)]
+    return _flatten_attribute_values_impl(value, parent_key=parent_key)
 
 
 def _extract_comment_text(node):
-    if str(node.get("commandName", "")).lower() != "comment":
-        return ""
-    return sanitize_text(_get_attribute_string(node, "comment"))
+    return _extract_comment_text_impl(node)
 
 
 def _is_header_comment(comment_text):
-    normalized = comment_text.lower()
-    return any(normalized.startswith(f"{prefix}:") for prefix in HEADER_COMMENT_PREFIXES)
+    return _is_header_comment_impl(comment_text)
 
 
 def _get_attribute(node, name):
-    for attribute in node.get("attributes", []):
-        if attribute.get("name") == name:
-            return attribute.get("value")
-    return None
+    return _get_attribute_impl(node, name)
 
 
 def _get_attribute_string(node, name):
-    return sanitize_text(_extract_value_literal(_get_attribute(node, name)), field_name=name)
+    return _get_attribute_string_impl(node, name)
 
 
 def _extract_value_literal(value):
-    if value is None:
-        return ""
-
-    if isinstance(value, dict):
-        for key in ("string", "expression", "number", "boolean", "variableName", "sessionName"):
-            if key in value:
-                return value[key]
-
-        if "taskbotFile" in value:
-            return value["taskbotFile"].get("string") or value["taskbotFile"].get("expression") or ""
-
-        if "dictionary" in value:
-            return ", ".join(item.get("key", "") for item in value["dictionary"] if isinstance(item, dict))
-
-    return value
+    return _extract_value_literal_impl(value)
 
 
 def _normalize_repository_path(repository_path):
-    if not repository_path:
-        return ""
-
-    normalized = repository_path
-    if normalized.startswith("repository:///"):
-        normalized = normalized[len("repository:///") :]
-    normalized = unquote(normalized)
-    return _normalize_path_text(normalized)
+    return _normalize_repository_path_impl(repository_path)
 
 
 def _normalize_path_text(path_text):
-    return str(path_text).replace("/", os.sep).replace("\\", os.sep)
+    return _normalize_path_text_impl(path_text)
 
 
 def _load_json(file_path):
-    with open(file_path, "r", encoding="utf-8") as file_obj:
-        return json.load(file_obj)
+    return _load_json_impl(file_path)
 
 
 def _parse_xml_file(file_path, relative_path):
-    """Extrae informacion de un archivo XML incluyendo detalles generales."""
-    try:
-        tree = ET.parse(file_path)
-        root = tree.getroot()
-        variables = _extract_variables_from_xml(root)
-        actions = _extract_actions_from_xml(root)
-
-        return {
-            "name": os.path.basename(file_path),
-            "path": relative_path,
-            "type": "xml",
-            "description": sanitize_text(root.attrib.get("Description", root.attrib.get("description", ""))),
-            "attributes": _sanitize_mapping(root.attrib),
-            "size": os.path.getsize(file_path),
-            "variables": {
-                "input": variables["input"],
-                "output": variables["output"],
-                "internal": [],
-            },
-            "actions": actions,
-            "dependencies": [],
-            "systems": [],
-            "node_stats": {"total_nodes": len(list(root.iter()))},
-            "error_handling": {"has_try": False, "has_catch": False, "has_finally": False},
-            "task_calls": [],
-            "packages": [],
-            "properties": {},
-            "triggers": [],
-            "comments": [],
-            "role": "document",
-            "is_entrypoint": False,
-        }
-    except Exception as exc:
-        logger.debug("Error parseando XML %s: %s", file_path, exc)
-        return None
+    return _documents.parse_xml_file(
+        file_path,
+        relative_path,
+        extract_variables_from_xml=_extract_variables_from_xml,
+        extract_actions_from_xml=_extract_actions_from_xml,
+        logger=logger,
+    )
 
 
 def _parse_json_file(file_path, relative_path):
-    """Extrae informacion de un JSON generico cuando no es taskbot."""
-    try:
-        with open(file_path, "r", encoding="utf-8") as file_obj:
-            data = json.load(file_obj)
-
-        description = ""
-        if isinstance(data, dict):
-            description = data.get("description", data.get("Description", ""))
-
-        variables = _extract_variables_from_json(data)
-        return {
-            "name": os.path.basename(file_path),
-            "path": relative_path,
-            "type": "json",
-            "description": sanitize_text(description),
-            "attributes": {},
-            "size": os.path.getsize(file_path),
-            "variables": {
-                "input": variables["input"],
-                "output": variables["output"],
-                "internal": [],
-            },
-            "actions": [],
-            "dependencies": [],
-            "systems": [],
-            "node_stats": {"total_nodes": len(data) if isinstance(data, (dict, list)) else 0},
-            "error_handling": {"has_try": False, "has_catch": False, "has_finally": False},
-            "task_calls": [],
-            "packages": [],
-            "properties": {},
-            "triggers": [],
-            "comments": [],
-            "role": "document",
-            "is_entrypoint": False,
-        }
-    except Exception as exc:
-        logger.debug("Error parseando JSON %s: %s", file_path, exc)
-        return None
+    return _documents.parse_json_file(
+        file_path,
+        relative_path,
+        extract_variables_from_json=_extract_variables_from_json,
+        logger=logger,
+    )
 
 
 def _extract_variables_from_xml(root):
-    variables = {"input": [], "output": []}
-
-    try:
-        for element in root.iter():
-            tag = element.tag.lower()
-            if "input" in tag or "parameter" in tag:
-                variables["input"].append(
-                    {
-                        "name": element.attrib.get("Name", element.attrib.get("name", "Unknown")),
-                        "type": element.attrib.get("Type", element.attrib.get("type", "String")),
-                        "default": sanitize_text(element.attrib.get("Value", element.attrib.get("value", ""))),
-                        "description": "",
-                        "read_only": False,
-                        "scope": "input",
-                    }
-                )
-            if "output" in tag or "return" in tag:
-                variables["output"].append(
-                    {
-                        "name": element.attrib.get("Name", element.attrib.get("name", "Unknown")),
-                        "type": element.attrib.get("Type", element.attrib.get("type", "String")),
-                        "default": sanitize_text(element.attrib.get("Value", element.attrib.get("value", ""))),
-                        "description": "",
-                        "read_only": False,
-                        "scope": "output",
-                    }
-                )
-    except Exception as exc:
-        logger.debug("Error extrayendo variables XML: %s", exc)
-
-    return variables
+    return _documents.extract_variables_from_xml(root, logger)
 
 
 def _extract_variables_from_json(data):
-    variables = {"input": [], "output": []}
-
-    try:
-        if not isinstance(data, dict):
-            return variables
-
-        for key, value in data.items():
-            normalized_key = key.lower()
-            if not isinstance(value, dict):
-                continue
-
-            if "input" in normalized_key:
-                for variable_name, variable_value in value.items():
-                    variables["input"].append(
-                        {
-                            "name": variable_name,
-                            "type": type(variable_value).__name__,
-                            "default": sanitize_text(variable_value, field_name=variable_name),
-                            "description": "",
-                            "read_only": False,
-                            "scope": "input",
-                        }
-                    )
-            elif "output" in normalized_key:
-                for variable_name, variable_value in value.items():
-                    variables["output"].append(
-                        {
-                            "name": variable_name,
-                            "type": type(variable_value).__name__,
-                            "default": sanitize_text(variable_value, field_name=variable_name),
-                            "description": "",
-                            "read_only": False,
-                            "scope": "output",
-                        }
-                    )
-    except Exception as exc:
-        logger.debug("Error extrayendo variables JSON: %s", exc)
-
-    return variables
+    return _documents.extract_variables_from_json(data, logger)
 
 
 def _extract_actions_from_xml(root):
-    actions = []
-
-    try:
-        for element in root.iter():
-            tag = element.tag.lower()
-            if "action" in tag or "task" in tag or "step" in tag:
-                actions.append(
-                    sanitize_text(
-                        element.attrib.get("Description")
-                        or element.attrib.get("description")
-                        or element.attrib.get("Name")
-                        or element.attrib.get("name")
-                        or element.tag
-                    )
-                )
-    except Exception as exc:
-        logger.debug("Error extrayendo acciones XML: %s", exc)
-
-    return actions
+    return _documents.extract_actions_from_xml(root, logger)
