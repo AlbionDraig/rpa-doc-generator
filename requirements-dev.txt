@@ -1,0 +1,4 @@
+pytest
+coverage
+ruff
+pip-audit

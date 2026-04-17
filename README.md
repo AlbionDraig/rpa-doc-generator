@@ -117,6 +117,11 @@ Variables de entorno:
 | `OPENAI_MODEL` | Modelo de chat a utilizar | `gpt-4o-mini` |
 | `OPENAI_BASE_URL` | Base URL del proveedor compatible (`.../v1`) | `https://api.openai.com/v1` |
 | `AI_TIMEOUT_SECONDS` | Timeout por llamada de IA | `25` |
+| `API_RATE_LIMIT_ENABLED` | Habilita rate limit para endpoints pesados | `true` |
+| `API_RATE_LIMIT_MAX_REQUESTS` | Maximo de solicitudes por IP en ventana | `30` |
+| `API_RATE_LIMIT_WINDOW_SECONDS` | Ventana de rate limit (segundos) | `60` |
+| `MAX_CONCURRENT_GENERATIONS` | Generaciones simultaneas permitidas (`/generate`, `/quality`) | `2` |
+| `GENERATION_ACQUIRE_TIMEOUT_SECONDS` | Timeout para esperar slot de concurrencia | `10` |
 
 ---
 
@@ -208,6 +213,27 @@ Comandos usados para validacion:
 python -m coverage erase
 python -m coverage run -m pytest tests -q
 python -m coverage report -m
+```
+
+## CI/CD
+
+El repositorio incluye workflow de GitHub Actions en [.github/workflows/ci.yml](.github/workflows/ci.yml).
+
+Checks incluidos en cada push/PR a `master`:
+
+- Lint critico (errores de sintaxis y referencias invalidas) con `ruff`
+- Suite de tests con `pytest`
+- Gate de cobertura con `coverage` (`--fail-under=90`)
+- Auditoria de dependencias con `pip-audit` (no bloqueante por ahora)
+
+Comandos equivalentes para ejecutar localmente:
+
+```bash
+pip install -r requirements.txt -r requirements-dev.txt
+ruff check --select E9,F63,F7,F82 app tests
+python -m coverage erase
+python -m coverage run -m pytest tests -q
+python -m coverage report --fail-under=90 -m
 ```
 
 ---
