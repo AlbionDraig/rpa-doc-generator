@@ -7,6 +7,25 @@ Generador automatico de documentacion tecnica para bots de Automation Anywhere 3
 
 Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de calidad en Markdown, Word y PDF, mas un diagrama SVG del flujo entre taskbots.
 
+## Tabla de contenido
+
+- [Que genera](#que-genera)
+- [Caracteristicas principales](#caracteristicas-principales)
+- [IA opcional para calidad por taskbot](#ia-opcional-para-calidad-por-taskbot)
+- [Requisitos](#requisitos)
+- [Instalacion](#instalacion)
+- [Ejecucion](#ejecucion)
+- [Personalizacion mediante Templates](#personalizacion-mediante-templates)
+- [Calidad y Cobertura](#calidad-y-cobertura)
+- [CI/CD](#cicd)
+- [API](#api)
+- [CORS](#cors)
+- [Limites](#limites)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Configuracion por entorno](#configuracion-por-entorno)
+- [Flujo interno de procesamiento](#flujo-interno-de-procesamiento)
+- [Troubleshooting](#troubleshooting)
+
 ---
 
 ## Que genera
