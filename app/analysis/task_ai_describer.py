@@ -8,6 +8,15 @@ from app.application.settings import AppSettings
 logger = logging.getLogger(__name__)
 
 
+def _build_ai_headers(api_key):
+    return {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {api_key}",
+        "Accept": "application/json",
+        "User-Agent": "rpa-doc-generator/1.0 (+https://localhost)",
+    }
+
+
 def describe_task_with_ai(task, settings=None):
     """
     Describe functional intent and quality-oriented insights for one taskbot.
@@ -54,10 +63,7 @@ def describe_task_with_ai(task, settings=None):
         req = request.Request(
             endpoint,
             data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
+            headers=_build_ai_headers(api_key),
             method="POST",
         )
         with request.urlopen(req, timeout=timeout) as response:
@@ -152,10 +158,7 @@ def build_sdd_ai_insights(project_data, flow=None, settings=None):
         req = request.Request(
             endpoint,
             data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
+            headers=_build_ai_headers(api_key),
             method="POST",
         )
         with request.urlopen(req, timeout=timeout) as response:
@@ -230,10 +233,7 @@ def build_quality_prioritization(project_data, task_descriptions, observations, 
         req = request.Request(
             endpoint,
             data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            },
+            headers=_build_ai_headers(api_key),
             method="POST",
         )
         with request.urlopen(req, timeout=timeout) as response:
