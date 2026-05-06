@@ -288,6 +288,17 @@ Uso:
 
 Suite de tests en backend/tests/ con cobertura sobre API, parser, analysis, generators, ingestion y use cases.
 
+Dependencias Python:
+
+- `backend/requirements.txt`: runtime de la aplicacion.
+- `backend/requirements-dev.txt`: herramientas de desarrollo (pytest, coverage, ruff, pip-audit).
+
+Instalacion recomendada para desarrollo local (desde la raiz del repo):
+
+```bash
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+```
+
 Comandos habituales (desde `backend/`):
 
 ```bash

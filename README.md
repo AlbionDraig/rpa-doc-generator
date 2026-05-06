@@ -155,6 +155,13 @@ Variables de entorno:
 - Python 3.8+
 - pip
 
+### Archivos de dependencias
+
+- `backend/requirements.txt`: dependencias de runtime para ejecutar la API en produccion.
+- `backend/requirements-dev.txt`: herramientas de desarrollo (tests, coverage, lint y auditoria de dependencias).
+
+Esta separacion permite entornos de produccion mas livianos y entornos de desarrollo con tooling completo.
+
 ## Instalacion
 
 ```bash
@@ -166,7 +173,11 @@ venv\Scripts\activate
 # Linux/macOS
 source venv/bin/activate
 
+# Solo runtime (produccion)
 pip install -r backend/requirements.txt
+
+# Desarrollo completo (runtime + dev tools)
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 ```
 
 ## Ejecucion
@@ -555,7 +566,7 @@ rpa-doc-generator/
 | `400` al subir archivo | Verificar que sea un ZIP valido exportado de AA360 |
 | `404` al descargar | Verificar `session_id` y que `file_type` sea valido |
 | Puerto ocupado | Iniciar con `--port 8001` |
-| Modulo no encontrado | `pip install -r requirements.txt` |
+| Modulo no encontrado | `pip install -r backend/requirements.txt` |
 | Configuracion no aplicada | Verificar que el valor este en `.env` y reiniciar la API |
 
 ---
