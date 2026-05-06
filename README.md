@@ -1,6 +1,8 @@
 # RPA Doc Generator
 
-[![CI](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml)
+[![Lint](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml)
+[![Security](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml)
+[![Tests](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml)
 ![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
@@ -264,15 +266,15 @@ python -m coverage report -m
 
 ## CI/CD
 
-El repositorio incluye workflow de GitHub Actions en [.github/workflows/ci.yml](.github/workflows/ci.yml).
+El repositorio tiene tres workflows independientes en `.github/workflows/`, cada uno con una sola responsabilidad:
 
-Checks incluidos en cada push/PR a `develop` y `master`:
+| Workflow | Archivo | Que valida |
+|----------|---------|------------|
+| Lint | [lint.yml](.github/workflows/lint.yml) | Errores de sintaxis y referencias invalidas (`ruff`) |
+| Security | [security.yml](.github/workflows/security.yml) | Seguridad estatica (`bandit`) y vulnerabilidades de dependencias (`pip-audit`) |
+| Tests | [tests.yml](.github/workflows/tests.yml) | Suite de tests y gate de cobertura >= 90% (`pytest` + `coverage`) |
 
-- Lint critico (errores de sintaxis y referencias invalidas) con `ruff`
-- Auditoria de seguridad con `bandit` (`-ll -s B104`)
-- Suite de tests con `pytest`
-- Gate de cobertura con `coverage` (`--fail-under=90`)
-- Auditoria de dependencias con `pip-audit` (no bloqueante por ahora)
+Todos corren en cada push/PR a `develop` y `master`. Todos son bloqueantes.
 
 Comandos equivalentes para ejecutar localmente (desde `backend/`):
 
@@ -280,8 +282,15 @@ Comandos equivalentes para ejecutar localmente (desde `backend/`):
 cd backend
 pip install -r requirements.txt -r requirements-dev.txt
 pip install bandit
+
+# Lint
 ruff check --select E9,F63,F7,F82 app tests
+
+# Security
 bandit -q -r app -ll -s B104
+pip-audit --progress-spinner off
+
+# Tests y cobertura
 python -m coverage erase
 python -m coverage run -m pytest tests -q
 python -m coverage report --fail-under=90 -m
@@ -525,7 +534,10 @@ rpa-doc-generator/
 ├── output/                # Artefactos generados por sesion
 ├── tmp/                   # ZIPs extraidos temporalmente
 ├── .github/
-│   ├── workflows/ci.yml
+│   ├── workflows/
+│   │   ├── lint.yml       # Lint con ruff
+│   │   ├── security.yml   # Bandit + pip-audit
+│   │   └── tests.yml      # pytest + coverage
 │   ├── instructions/      # Reglas por dominio para asistentes IA
 │   ├── agents/            # Perfiles de agente IA
 │   ├── prompts/           # Prompts reutilizables para tareas comunes
