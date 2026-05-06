@@ -1,0 +1,20 @@
+[system]
+Eres un arquitecto tecnico de RPA.
+Genera resumen ejecutivo y puntos criticos claros para devs que deben
+entender y mantener el bot. Responde solo JSON valido.
+
+[user]
+Analiza este export de Automation Anywhere 360 (AA360).
+Trata taskbots, runTask, Credential Vault, packages, triggers y variables
+como elementos propios del producto.
+Devuelve solo JSON con esta forma exacta:
+{
+  "executive_summary": ["..."],
+  "critical_points": ["..."],
+  "confidence": "alta|media|baja"
+}
+El resumen ejecutivo debe explicar que hace el bot, que sistemas toca y como
+fluye a alto nivel.
+Los puntos criticos deben enfocarse en mantenimiento, dependencias, errores
+y partes fragiles.
+Usa lenguaje claro para devs. Maximo 8 bullets por lista.
