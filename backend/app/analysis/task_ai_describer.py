@@ -1,9 +1,37 @@
 import json
 import logging
 import re
+from pathlib import Path
 from urllib import request, error
 
 from app.application.settings import AppSettings
+
+_PROMPTS_DIR = Path(__file__).parent.parent / "templates" / "prompts"
+
+
+def _load_prompt(name: str) -> dict:
+    """Load system and user instruction sections from a prompt file.
+
+    The file must use ``[system]`` and ``[user]`` section headers.
+    Returns a dict with keys ``"system"`` and ``"user"``.
+    """
+    path = _PROMPTS_DIR / f"{name}.txt"
+    text = path.read_text(encoding="utf-8")
+    sections: dict = {}
+    current: str | None = None
+    lines: list = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if current is not None:
+                sections[current] = "\n".join(lines).strip()
+            current = stripped[1:-1]
+            lines = []
+        else:
+            lines.append(line)
+    if current is not None:
+        sections[current] = "\n".join(lines).strip()
+    return sections
 
 logger = logging.getLogger(__name__)
 
@@ -40,19 +68,13 @@ def describe_task_with_ai(task, settings=None):
     base_url = provider_config["base_url"]
     timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
-    prompt = _build_prompt(task)
+    _prompt = _load_prompt("taskbot_description")
+    prompt = _build_prompt(task, _prompt["user"])
     payload = {
         "model": model,
         "temperature": 0.2,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Eres un analista tecnico de Automation Anywhere enfocado en calidad. "
-                    "Debes inferir proposito funcional del taskbot, su funcion en el flujo, criticidad, "
-                    "riesgos y mejoras. Responde unicamente JSON valido."
-                ),
-            },
+            {"role": "system", "content": _prompt["system"]},
             {"role": "user", "content": prompt},
         ],
     }
@@ -66,7 +88,7 @@ def describe_task_with_ai(task, settings=None):
             headers=_build_ai_headers(api_key),
             method="POST",
         )
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
             raw = response.read().decode("utf-8")
 
         data = json.loads(raw)
@@ -137,18 +159,13 @@ def build_sdd_ai_insights(project_data, flow=None, settings=None):
     base_url = provider_config["base_url"]
     timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
-    prompt = _build_sdd_prompt(project_data, flow)
+    _prompt = _load_prompt("sdd_insights")
+    prompt = _build_sdd_prompt(project_data, flow, _prompt["user"])
     payload = {
         "model": model,
         "temperature": 0.2,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Eres un arquitecto tecnico de RPA. Genera resumen ejecutivo y puntos criticos "
-                    "claros para devs que deben entender y mantener el bot. Responde solo JSON valido."
-                ),
-            },
+            {"role": "system", "content": _prompt["system"]},
             {"role": "user", "content": prompt},
         ],
     }
@@ -161,7 +178,7 @@ def build_sdd_ai_insights(project_data, flow=None, settings=None):
             headers=_build_ai_headers(api_key),
             method="POST",
         )
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
             raw = response.read().decode("utf-8")
 
         data = json.loads(raw)
@@ -212,18 +229,13 @@ def build_quality_prioritization(project_data, task_descriptions, observations, 
     base_url = provider_config["base_url"]
     timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
-    prompt = _build_prioritization_prompt(project_data, task_descriptions, observations)
+    _prompt = _load_prompt("quality_prioritization")
+    prompt = _build_prioritization_prompt(project_data, task_descriptions, observations, _prompt["user"])
     payload = {
         "model": model,
         "temperature": 0.1,
         "messages": [
-            {
-                "role": "system",
-                "content": (
-                    "Eres un tech lead de RPA. Priorizas riesgos para ejecucion real y propones plan por sprint. "
-                    "Responde solo JSON valido."
-                ),
-            },
+            {"role": "system", "content": _prompt["system"]},
             {"role": "user", "content": prompt},
         ],
     }
@@ -236,7 +248,7 @@ def build_quality_prioritization(project_data, task_descriptions, observations, 
             headers=_build_ai_headers(api_key),
             method="POST",
         )
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
             raw = response.read().decode("utf-8")
 
         data = json.loads(raw)
@@ -264,6 +276,15 @@ def _is_ai_enabled(settings):
     return bool(settings.ai_quality_enabled)
 
 
+def _validate_base_url(url: str, label: str) -> str:
+    """Validate that the provider base URL uses an allowed scheme (https or http)."""
+    if not url.startswith(("https://", "http://")):
+        raise ValueError(
+            f"Invalid {label} base URL scheme. Only 'https://' and 'http://' are allowed."
+        )
+    return url
+
+
 def _resolve_ai_provider_config(settings):
     groq_api_key = settings.groq_api_key
     if groq_api_key:
@@ -271,14 +292,14 @@ def _resolve_ai_provider_config(settings):
             "provider": "groq",
             "api_key": groq_api_key,
             "model": settings.groq_model,
-            "base_url": settings.groq_base_url,
+            "base_url": _validate_base_url(settings.groq_base_url, "GROQ_BASE_URL"),
         }
 
     return {
         "provider": "openai-compatible",
         "api_key": settings.openai_api_key,
         "model": settings.openai_model,
-        "base_url": settings.openai_base_url,
+        "base_url": _validate_base_url(settings.openai_base_url, "OPENAI_BASE_URL"),
     }
 
 
@@ -290,7 +311,9 @@ def _safe_timeout(value):
         return 25
 
 
-def _build_prompt(task):
+def _build_prompt(task, instructions=None):
+    if instructions is None:
+        instructions = _load_prompt("taskbot_description")["user"]
     compact_task = {
         "name": task.get("name", "Taskbot"),
         "role": task.get("role", "taskbot"),
@@ -325,21 +348,12 @@ def _build_prompt(task):
         "error_handling": task.get("error_handling", {}),
     }
 
-    instructions = (
-        "Eres un code reviewer senior de Automation Anywhere 360 (AA360). "
-        "Interpreta taskbots, runTask, Credential Vault, packages, triggers y contratos de variables como conceptos nativos de AA360. "
-        "Tambien clasifica cada taskbot en uno de estos perfiles AA360: principal, utilitario, integracion, validacion. "
-        "Devuelve JSON claro y practico, como mensajes para devs, no para reportes formales. Usa lenguaje directo y corto. "
-        "Riesgos: que puede romper. Recomendaciones: que hacer. "
-        "Devuelve solo JSON con esta forma: "
-        "{\"task_profile\":\"principal|utilitario|integracion|validacion\", \"what_it_does\":\"...\", \"business_function\":\"...\", \"criticality\":\"alta|media|baja\", "
-        "\"risks\":[\"...\"], \"recommendations\":[\"...\"], \"confidence\":\"alta|media|baja\"}. "
-        "Sin markdown. Solo JSON valido."
-    )
     return f"{instructions}\n\nTaskbot:\n{json.dumps(compact_task, ensure_ascii=True)}"
 
 
-def _build_sdd_prompt(project_data, flow):
+def _build_sdd_prompt(project_data, flow, instructions=None):
+    if instructions is None:
+        instructions = _load_prompt("sdd_insights")["user"]
     tasks = project_data.get("tasks", [])
     summary = {
         "project": project_data.get("name", "Proyecto"),
@@ -369,19 +383,12 @@ def _build_sdd_prompt(project_data, flow):
         ],
     }
 
-    instructions = (
-        "Analiza este export de Automation Anywhere 360 (AA360). "
-        "Trata taskbots, runTask, Credential Vault, packages, triggers y variables como elementos propios del producto. "
-        "Devuelve solo JSON con esta forma exacta: "
-        '{"executive_summary":["..."],"critical_points":["..."],"confidence":"alta|media|baja"}. '
-        "El resumen ejecutivo debe explicar que hace el bot, que sistemas toca y como fluye a alto nivel. "
-        "Los puntos criticos deben enfocarse en mantenimiento, dependencias, errores y partes fragiles. "
-        "Usa lenguaje claro para devs. Maximo 8 bullets por lista."
-    )
     return f"{instructions}\n\nContexto:\n{json.dumps(summary, ensure_ascii=True)}"
 
 
-def _build_prioritization_prompt(project_data, task_descriptions, observations):
+def _build_prioritization_prompt(project_data, task_descriptions, observations, instructions=None):
+    if instructions is None:
+        instructions = _load_prompt("quality_prioritization")["user"]
     summary = {
         "project": project_data.get("name", "Proyecto"),
         "task_count": len(project_data.get("tasks", [])),
@@ -399,15 +406,6 @@ def _build_prioritization_prompt(project_data, task_descriptions, observations):
         ],
     }
 
-    instructions = (
-        "Analiza los hallazgos como un proyecto de Automation Anywhere 360 (AA360). "
-        "Prioriza lo que puede romper taskbots, runTask, variables, triggers, Credential Vault o integraciones. "
-        "Devuelve solo JSON con esta forma exacta: "
-        '{"priority_findings":[{"severity":"bloqueante|alto|medio|bajo","title":"...","why":"...","task":"..."}],'
-        '"sprint_plan":[{"priority":"P1|P2|P3","action":"...","effort":"S|M|L","impact":"...","owner":"dev|qa|rpa-lead","tasks":["..."],"done_criteria":["..."]}],'
-        '"confidence":"alta|media|baja"}. '
-        "Maximo 6 findings y 6 acciones. Prioriza lo que puede romper produccion."
-    )
     return f"{instructions}\n\nContexto:\n{json.dumps(summary, ensure_ascii=True)}"
 
 

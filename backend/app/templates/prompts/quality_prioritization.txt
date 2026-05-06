@@ -1,0 +1,33 @@
+[system]
+Eres un tech lead de RPA.
+Priorizas riesgos para ejecucion real y propones plan por sprint.
+Responde solo JSON valido.
+
+[user]
+Analiza los hallazgos como un proyecto de Automation Anywhere 360 (AA360).
+Prioriza lo que puede romper taskbots, runTask, variables, triggers,
+Credential Vault o integraciones.
+Devuelve solo JSON con esta forma exacta:
+{
+  "priority_findings": [
+    {
+      "severity": "bloqueante|alto|medio|bajo",
+      "title": "...",
+      "why": "...",
+      "task": "..."
+    }
+  ],
+  "sprint_plan": [
+    {
+      "priority": "P1|P2|P3",
+      "action": "...",
+      "effort": "S|M|L",
+      "impact": "...",
+      "owner": "dev|qa|rpa-lead",
+      "tasks": ["..."],
+      "done_criteria": ["..."]
+    }
+  ],
+  "confidence": "alta|media|baja"
+}
+Maximo 6 findings y 6 acciones. Prioriza lo que puede romper produccion.

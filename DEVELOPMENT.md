@@ -22,7 +22,8 @@ Para contratos y modelos exactos del codigo:
 10. [Templates](#templates)
 11. [Convenciones de Desarrollo](#convenciones-de-desarrollo)
 12. [Pruebas](#pruebas)
-13. [Licencia](#licencia)
+13. [Steering IA (Agents, Instructions, Hooks)](#steering-ia-agents-instructions-hooks)
+14. [Licencia](#licencia)
 
 ---
 
@@ -30,22 +31,22 @@ Para contratos y modelos exactos del codigo:
 
 La aplicacion sigue un monolito modular por capas:
 
-- app/main.py
+- backend/app/main.py
   - Bootstrap de FastAPI
   - Registro de middlewares
   - Montaje de static
   - Inclusion de routers
-- app/api/
+- backend/app/api/
   - Endpoints HTTP y contratos de respuesta
-- app/application/
+- backend/app/application/
   - AppSettings y casos de uso
-- app/ingestion/
+- backend/app/ingestion/
   - Carga y extraccion segura de ZIP
-- app/parser/
+- backend/app/parser/
   - Parseo de proyectos AA360
-- app/analysis/
+- backend/app/analysis/
   - Flujo, arbol e insights de calidad
-- app/generator/
+- backend/app/generator/
   - Exportadores MD, DOCX, PDF y SVG
 
 ---
@@ -71,27 +72,27 @@ Definidos en app/main.py (tecnicos/docs):
 
 ## Capa API
 
-### app/api/routes/generate.py
+### backend/app/api/routes/generate.py
 - Handler: generate(file, request)
 - Invoca: run_generate_sdd(file, settings, logger)
 - Controla concurrencia con generation_limiter.slot()
 - Mapea errores via map_exception_to_http()
 
-### app/api/routes/quality.py
+### backend/app/api/routes/quality.py
 - Handler: quality(file, request)
 - Invoca: run_generate_quality(file, settings, logger)
 - Misma estrategia de concurrencia y mapeo de errores
 
-### app/api/routes/download.py
+### backend/app/api/routes/download.py
 - Handler: download_file(session_id, file_type, request)
 - Resuelve archivo con resolve_download_file(output_dir, file_type)
 - Retorna FileResponse
 
-### app/api/routes/system.py
+### backend/app/api/routes/system.py
 - Handler health(): retorna estado de aplicacion
 - Handler root(): retorna enlaces a docs/redoc/health
 
-### app/api/contracts.py
+### backend/app/api/contracts.py
 Modelos Pydantic:
 - RootResponse
 - HealthResponse
@@ -102,7 +103,7 @@ Modelos Pydantic:
 
 ## Capa Application
 
-### app/application/settings.py
+### backend/app/application/settings.py
 Dataclass AppSettings construido desde entorno (from_env).
 
 Campos clave:
@@ -117,7 +118,7 @@ Campos clave:
 - api_rate_limit_enabled, api_rate_limit_max_requests, api_rate_limit_window_seconds
 - max_concurrent_generations, generation_acquire_timeout_seconds
 
-### app/application/use_cases/generate_sdd.py
+### backend/app/application/use_cases/generate_sdd.py
 Funcion publica:
 - run_generate_sdd(file, settings, logger)
 
@@ -132,7 +133,7 @@ Pipeline:
 8. generate_sdd_word / generate_sdd_pdf
 9. limpieza de temporales
 
-### app/application/use_cases/generate_quality.py
+### backend/app/application/use_cases/generate_quality.py
 Funcion publica:
 - run_generate_quality(file, settings, logger)
 
@@ -145,7 +146,7 @@ Pipeline:
 6. generate_quality_pdf
 7. limpieza de temporales
 
-### app/application/use_cases/download_artifact.py
+### backend/app/application/use_cases/download_artifact.py
 Funcion publica:
 - resolve_download_file(output_dir, file_type)
 
@@ -162,13 +163,13 @@ Tipos soportados:
 
 ## Capa Ingestion
 
-### app/ingestion/uploader.py
+### backend/app/ingestion/uploader.py
 - save_file(file, settings=None)
 - Valida extension .zip
 - Escribe en chunks
 - Aplica limite max_file_size
 
-### app/ingestion/extractor.py
+### backend/app/ingestion/extractor.py
 - extract_project(zip_path, settings=None)
 - Verifica integridad del ZIP
 - Previene path traversal
@@ -179,7 +180,7 @@ Tipos soportados:
 ## Capa Parser
 
 Punto de entrada:
-- app/parser/project_parser.py -> parse_project(path)
+- backend/app/parser/project_parser.py -> parse_project(path)
 
 Submodulos:
 - _common.py: sanitizacion, helpers de lectura y normalizacion
@@ -198,18 +199,18 @@ Salida principal de parse_project:
 
 ## Capa Analysis
 
-### app/analysis/flow_builder.py
+### backend/app/analysis/flow_builder.py
 - build_flow(tasks)
 - Retorna:
   - nodes con id, name, path, role, is_entrypoint, type, order, node_count
   - edges con from, to, label, inputs_count, outputs_count
   - summary con total_nodes, total_edges, entrypoints, has_dependencies
 
-### app/analysis/tree_builder.py
+### backend/app/analysis/tree_builder.py
 - build_tree(path, prefix="", include_stats=True)
 - Genera arbol de directorios para documentacion
 
-### app/analysis/task_ai_describer.py
+### backend/app/analysis/task_ai_describer.py
 Funciones publicas:
 - describe_task_with_ai(task, settings=None)
 - build_quality_task_descriptions(tasks, settings=None)
@@ -221,20 +222,20 @@ Funciones publicas:
 
 ## Capa Generator
 
-### app/generator/sdd_generator.py
+### backend/app/generator/sdd_generator.py
 - generate_sdd(...)
 - generate_sdd_file(...)
 - generate_quality_file(...)
 
-### app/generator/word_generator.py
+### backend/app/generator/word_generator.py
 - generate_sdd_word(...)
 - generate_quality_word(...)
 
-### app/generator/pdf_generator.py
+### backend/app/generator/pdf_generator.py
 - generate_sdd_pdf(...)
 - generate_quality_pdf(...)
 
-### app/generator/diagram_generator.py
+### backend/app/generator/diagram_generator.py
 - generate_flow_svg(flow)
 - convert_svg_to_png(svg_path, png_path, scale=3.0)
 
@@ -242,7 +243,7 @@ Funciones publicas:
 
 ## Middleware y Operacion
 
-Configurados en app/main.py:
+Configurados en backend/app/main.py:
 
 - ObservabilityMiddleware
 - EndpointRateLimitMiddleware (protege /generate/ y /quality/)
@@ -255,16 +256,21 @@ Tambien se inicializa:
 
 ## Templates
 
-Ubicacion: app/templates/
+Ubicacion: backend/app/templates/
 
 - sdd_template.md
 - quality_template.md
 - pdf_style.css
 - word_theme.json
+- prompts/taskbot_description.txt  # Instrucciones IA por taskbot
+- prompts/sdd_insights.txt          # Instrucciones IA para resumen ejecutivo SDD
+- prompts/quality_prioritization.txt # Instrucciones IA para priorizar hallazgos
 
 Uso:
 - Los generadores intentan cargar template/estilo del archivo
+- Los prompts se cargan en cada llamada a la IA (sin reiniciar)
 - Si falta archivo, usan fallback interno
+- Cada prompt tiene secciones `[system]` y `[user]` editables independientemente
 
 ---
 
@@ -280,11 +286,23 @@ Uso:
 
 ## Pruebas
 
-Suite de tests en tests/ con cobertura sobre API, parser, analysis, generators, ingestion y use cases.
+Suite de tests en backend/tests/ con cobertura sobre API, parser, analysis, generators, ingestion y use cases.
 
-Comandos habituales:
+Dependencias Python:
+
+- `backend/requirements.txt`: runtime de la aplicacion.
+- `backend/requirements-dev.txt`: herramientas de desarrollo (pytest, coverage, ruff, pip-audit).
+
+Instalacion recomendada para desarrollo local (desde la raiz del repo):
 
 ```bash
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
+```
+
+Comandos habituales (desde `backend/`):
+
+```bash
+cd backend
 python -m pytest -q
 python -m coverage erase
 python -m coverage run -m pytest tests -q
@@ -292,6 +310,28 @@ python -m coverage report -m
 ```
 
 Para estado de cobertura y badges, revisar README.md.
+
+---
+
+## Steering IA (Agents, Instructions, Hooks)
+
+El repositorio incluye configuracion versionada para estandarizar el comportamiento de asistentes IA y subagentes.
+
+Archivos clave:
+
+- `AGENTS.md`: contexto operativo y reglas base del repositorio.
+- `.github/copilot-instructions.md`: principios de ingenieria globales.
+- `.github/instructions/*.instructions.md`: reglas por dominio (backend, frontend, testing, git, etc.).
+- `.github/agents/*.agent.md`: perfiles de trabajo (`Implementer`, `Reviewer`, `Explore`).
+- `.github/hooks/policy.json`: politica de hooks para herramientas.
+- `.github/hooks/scripts/pre-safety.js`: validacion previa de operaciones peligrosas.
+
+Uso recomendado:
+
+1. `Explore` para mapear codigo sin editar.
+2. `Implementer` para cambios de funcionalidad y pruebas.
+3. `Reviewer` para analisis de riesgos, seguridad y mantenibilidad.
+4. Mantener esta carpeta `.github/` versionada para consistencia entre colaboradores.
 
 ---
 

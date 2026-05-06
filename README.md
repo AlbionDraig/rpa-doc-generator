@@ -1,7 +1,7 @@
 # RPA Doc Generator
 
 [![CI](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/ci.yml)
-![Coverage](https://img.shields.io/badge/coverage-98%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Generador automatico de documentacion tecnica para bots de Automation Anywhere 360.
@@ -19,6 +19,7 @@ Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de ca
 - [Personalizacion mediante Templates](#personalizacion-mediante-templates)
 - [Calidad y Cobertura](#calidad-y-cobertura)
 - [CI/CD](#cicd)
+- [Steering para IA (Agents y Hooks)](#steering-para-ia-agents-y-hooks)
 - [API](#api)
 - [CORS](#cors)
 - [Limites](#limites)
@@ -154,6 +155,13 @@ Variables de entorno:
 - Python 3.8+
 - pip
 
+### Archivos de dependencias
+
+- `backend/requirements.txt`: dependencias de runtime para ejecutar la API en produccion.
+- `backend/requirements-dev.txt`: herramientas de desarrollo (tests, coverage, lint y auditoria de dependencias).
+
+Esta separacion permite entornos de produccion mas livianos y entornos de desarrollo con tooling completo.
+
 ## Instalacion
 
 ```bash
@@ -165,19 +173,24 @@ venv\Scripts\activate
 # Linux/macOS
 source venv/bin/activate
 
-pip install -r requirements.txt
+# Solo runtime (produccion)
+pip install -r backend/requirements.txt
+
+# Desarrollo completo (runtime + dev tools)
+pip install -r backend/requirements.txt -r backend/requirements-dev.txt
 ```
 
 ## Ejecucion
 
 ```bash
 # Windows
-run.bat
+backend\scripts\run.bat
 
 # Linux/macOS
-chmod +x run.sh && ./run.sh
+chmod +x backend/scripts/run.sh && backend/scripts/run.sh
 
-# Manual
+# Manual (desde backend/)
+cd backend
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -189,14 +202,17 @@ API disponible en `http://localhost:8000`.
 
 ## Personalizacion mediante Templates
 
-La generacion de documentos puede personalizarse sin recompilar el codigo modificando los templates en `app/templates/`:
+La generacion de documentos puede personalizarse sin recompilar el codigo modificando los templates en `backend/app/templates/`:
 
 | Archivo | Customiza | Ejemplo |
-|---------|-----------|---------|
+|---------|-----------|----------|
 | `sdd_template.md` | Estructura y seccion del SDD Markdown | Reordenar secciones, cambiar encabezados |
 | `quality_template.md` | Estructura del reporte de calidad Markdown | Agregar nuevas secciones de analisis |
 | `pdf_style.css` | Estilos CSS para PDFs (colores, tipografia) | Cambiar colores corporativos, fuentes |
 | `word_theme.json` | Tema de Word (colores RGB/HEX, espaciado) | Aplicar branding corporativo |
+| `prompts/taskbot_description.txt` | Instrucciones IA para describir cada taskbot | Ajustar tono, idioma o esquema JSON |
+| `prompts/sdd_insights.txt` | Instrucciones IA para resumen ejecutivo y puntos criticos del SDD | Cambiar cantidad de bullets, enfoque |
+| `prompts/quality_prioritization.txt` | Instrucciones IA para priorizar hallazgos y plan de sprint | Agregar criterios de severidad propios |
 
 **Ventajas:**
 - Cambios persisten entre despliegues
@@ -206,34 +222,41 @@ La generacion de documentos puede personalizarse sin recompilar el codigo modifi
 
 **Ejemplo: Cambiar colores corporativos en PDF y Word**
 
-1. Editar `app/templates/pdf_style.css`:
+1. Editar `backend/app/templates/pdf_style.css`:
    ```css
    h1 { border-bottom: 3px solid #YOUR_COLOR; }
    ```
 
-2. Editar `app/templates/word_theme.json`:
+2. Editar `backend/app/templates/word_theme.json`:
    ```json
    "accent": {"rgb": [R, G, B], "hex": "RRGGBB"}
    ```
 
-Los documentos generados usaran los nuevos colores sin reiniciar la aplicacion.
+**Ejemplo: Ajustar instrucciones de IA**
+
+Editar cualquier archivo en `backend/app/templates/prompts/`. Cada archivo tiene dos secciones:
+- `[system]`: rol y comportamiento base del modelo
+- `[user]`: instrucciones concretas y esquema JSON esperado
+
+Los cambios se aplican en el siguiente request sin reiniciar la aplicacion.
 
 ---
 
 ## Calidad y Cobertura
 
-Baseline validado al 2026-04-17:
+Baseline validado al 2026-05-06:
 
 - Suite automatizada: `96` tests pasando
-- Cobertura total de lineas: `98%`
+- Cobertura total de lineas: `97%`
 - Cobertura destacada:
   - `app/generator/word_generator.py`: `96%`
   - `app/application/use_cases/generate_quality.py`: `100%`
-  - `app/analysis/task_ai_describer.py`: `95%`
+  - `app/analysis/task_ai_describer.py`: `99%`
 
-Comandos usados para validacion:
+Comandos usados para validacion (desde `backend/`):
 
 ```bash
+cd backend
 python -m coverage erase
 python -m coverage run -m pytest tests -q
 python -m coverage report -m
@@ -243,22 +266,43 @@ python -m coverage report -m
 
 El repositorio incluye workflow de GitHub Actions en [.github/workflows/ci.yml](.github/workflows/ci.yml).
 
-Checks incluidos en cada push/PR a `master`:
+Checks incluidos en cada push/PR a `develop` y `master`:
 
 - Lint critico (errores de sintaxis y referencias invalidas) con `ruff`
+- Auditoria de seguridad con `bandit` (`-ll -s B104`)
 - Suite de tests con `pytest`
 - Gate de cobertura con `coverage` (`--fail-under=90`)
 - Auditoria de dependencias con `pip-audit` (no bloqueante por ahora)
 
-Comandos equivalentes para ejecutar localmente:
+Comandos equivalentes para ejecutar localmente (desde `backend/`):
 
 ```bash
+cd backend
 pip install -r requirements.txt -r requirements-dev.txt
+pip install bandit
 ruff check --select E9,F63,F7,F82 app tests
+bandit -q -r app -ll -s B104
 python -m coverage erase
 python -m coverage run -m pytest tests -q
 python -m coverage report --fail-under=90 -m
 ```
+
+## Steering para IA (Agents y Hooks)
+
+El repositorio incluye configuracion versionada para guiar asistentes IA de forma consistente:
+
+- `AGENTS.md`: punto de entrada con contexto operativo del proyecto.
+- `.github/copilot-instructions.md`: principios generales de implementacion.
+- `.github/instructions/*.instructions.md`: reglas por stack y tipo de cambio.
+- `.github/agents/*.agent.md`: modos especializados (`Implementer`, `Reviewer`, `Explore`).
+- `.github/hooks/policy.json` y `.github/hooks/scripts/pre-safety.js`: hook `PreToolUse` para pedir confirmacion ante comandos potencialmente destructivos.
+
+Recomendacion de uso:
+
+1. Para construir o corregir funcionalidad, usar modo `Implementer`.
+2. Para auditoria o revision de riesgos, usar modo `Reviewer`.
+3. Para exploracion rapida sin cambios, usar modo `Explore`.
+4. Mantener estos archivos en git para preservar el comportamiento del asistente entre colaboradores y sesiones.
 
 ---
 
@@ -415,70 +459,86 @@ Origenes permitidos por defecto:
 
 ```text
 rpa-doc-generator/
-├── app/
-│   ├── main.py            # Bootstrap FastAPI (config, middleware, routers, docs)
-│   ├── api/
-│   │   ├── deps.py        # Dependencias compartidas (settings/logger)
-│   │   └── routes/
-│   │       ├── generate.py
-│   │       ├── quality.py
-│   │       ├── download.py
-│   │       └── system.py
-│   ├── application/
-│   │   ├── settings.py    # Carga tipada de variables de entorno
-│   │   └── use_cases/
-│   │       ├── generate_sdd.py
-│   │       ├── generate_quality.py
-│   │       └── download_artifact.py
-│   ├── ingestion/
-│   │   ├── uploader.py    # Validacion y guardado del ZIP
-│   │   └── extractor.py   # Extraccion segura del ZIP
-│   ├── parser/
-│   │   └── project_parser.py  # Parseo taskbots, variables, credenciales, sistemas
-│   ├── analysis/
-│   │   ├── flow_builder.py    # Grafo de dependencias entre taskbots
-│   │   ├── tree_builder.py    # Arbol de directorios filtrado
-│   │   └── task_ai_describer.py # Analisis IA (calidad + SDD)
-│   ├── generator/
-│   │   ├── sdd_generator.py   # Compilacion SDD y reporte de calidad (Markdown)
-│   │   ├── diagram_generator.py  # SVG del flujo entre taskbots
-│   │   ├── word_generator.py  # Exportacion DOCX
-│   │   └── pdf_generator.py   # Exportacion PDF
-│   ├── templates/
-│   │   ├── sdd_template.md    # Plantilla Markdown del SDD
-│   │   └── quality_template.md # Plantilla Markdown del reporte de calidad
-│   └── static/
-├── tests/
-│   ├── test_api_structure.py
-│   ├── test_routes_error_mapping.py
-│   ├── test_use_cases_coverage.py
-│   ├── test_uploader_tree_settings_coverage.py
-│   ├── test_export_generators_coverage.py
-│   ├── test_flow_ai_edge_coverage.py
-│   ├── test_diagram_main_coverage.py
-│   ├── test_parser_additional_coverage.py
-│   ├── test_aa360_pipeline.py
-│   ├── test_parser_quality_coverage.py
-│   ├── test_extractor_coverage.py
-│   ├── test_task_ai_describer.py
-│   ├── test_template_loading.py
-│   ├── test_quality_content_validation.py
-│   └── test_sdd_content_validation.py
+├── backend/
+│   ├── app/
+│   │   ├── main.py            # Bootstrap FastAPI (config, middleware, routers, docs)
+│   │   ├── api/
+│   │   │   ├── deps.py        # Dependencias compartidas (settings/logger)
+│   │   │   └── routes/
+│   │   │       ├── generate.py
+│   │   │       ├── quality.py
+│   │   │       ├── download.py
+│   │   │       └── system.py
+│   │   ├── application/
+│   │   │   ├── settings.py    # Carga tipada de variables de entorno
+│   │   │   └── use_cases/
+│   │   │       ├── generate_sdd.py
+│   │   │       ├── generate_quality.py
+│   │   │       └── download_artifact.py
+│   │   ├── ingestion/
+│   │   │   ├── uploader.py    # Validacion y guardado del ZIP
+│   │   │   └── extractor.py   # Extraccion segura del ZIP
+│   │   ├── parser/
+│   │   │   └── project_parser.py  # Parseo taskbots, variables, credenciales, sistemas
+│   │   ├── analysis/
+│   │   │   ├── flow_builder.py    # Grafo de dependencias entre taskbots
+│   │   │   ├── tree_builder.py    # Arbol de directorios filtrado
+│   │   │   └── task_ai_describer.py # Analisis IA (calidad + SDD)
+│   │   ├── generator/
+│   │   │   ├── sdd_generator.py   # Compilacion SDD y reporte de calidad (Markdown)
+│   │   │   ├── diagram_generator.py  # SVG del flujo entre taskbots
+│   │   │   ├── word_generator.py  # Exportacion DOCX
+│   │   │   └── pdf_generator.py   # Exportacion PDF
+│   │   ├── templates/
+│   │   │   ├── sdd_template.md    # Plantilla Markdown del SDD
+│   │   │   ├── quality_template.md # Plantilla Markdown del reporte de calidad
+│   │   │   ├── pdf_style.css      # Estilos para exportacion PDF
+│   │   │   ├── word_theme.json    # Tema de colores para exportacion Word
+│   │   │   └── prompts/           # Instrucciones IA editables (sin recompilar)
+│   │   │       ├── taskbot_description.txt
+│   │   │       ├── sdd_insights.txt
+│   │   │       └── quality_prioritization.txt
+│   │   └── static/
+│   ├── tests/
+│   │   ├── test_api_structure.py
+│   │   ├── test_routes_error_mapping.py
+│   │   ├── test_use_cases_coverage.py
+│   │   ├── test_uploader_tree_settings_coverage.py
+│   │   ├── test_export_generators_coverage.py
+│   │   ├── test_flow_ai_edge_coverage.py
+│   │   ├── test_diagram_main_coverage.py
+│   │   ├── test_parser_additional_coverage.py
+│   │   ├── test_aa360_pipeline.py
+│   │   ├── test_parser_quality_coverage.py
+│   │   ├── test_extractor_coverage.py
+│   │   ├── test_task_ai_describer.py
+│   │   ├── test_template_loading.py
+│   │   ├── test_quality_content_validation.py
+│   │   └── test_sdd_content_validation.py
+│   ├── requirements.txt
+│   ├── requirements-dev.txt
+│   ├── pytest.ini
+│   ├── .env.example
+│   └── scripts/
+│       ├── run.bat
+│       └── run.sh
 ├── output/                # Artefactos generados por sesion
 ├── tmp/                   # ZIPs extraidos temporalmente
-├── requirements.txt
-├── .env.example
-├── run.bat
-├── run.sh
-└── DEVELOPMENT.md
+├── .github/
+│   ├── workflows/ci.yml
+│   ├── instructions/      # Reglas por dominio para asistentes IA
+│   ├── agents/            # Perfiles de agente IA
+│   ├── prompts/           # Prompts reutilizables para tareas comunes
+│   └── hooks/             # Hook PreToolUse de seguridad
+└── AGENTS.md
 ```
 
 ---
 
 ## Configuracion por entorno
 
-- Runtime usa variables desde `.env`.
-- `.env.example` es plantilla de referencia.
+- Runtime usa variables desde `backend/.env`.
+- `backend/.env.example` es plantilla de referencia.
 - Variables de IA, CORS, paths, host/puerto y limites de upload/extraccion se gestionan desde entorno.
 
 ---
@@ -506,7 +566,7 @@ rpa-doc-generator/
 | `400` al subir archivo | Verificar que sea un ZIP valido exportado de AA360 |
 | `404` al descargar | Verificar `session_id` y que `file_type` sea valido |
 | Puerto ocupado | Iniciar con `--port 8001` |
-| Modulo no encontrado | `pip install -r requirements.txt` |
+| Modulo no encontrado | `pip install -r backend/requirements.txt` |
 | Configuracion no aplicada | Verificar que el valor este en `.env` y reiniciar la API |
 
 ---
