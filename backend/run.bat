@@ -1,11 +1,15 @@
 @echo off
 REM Script para ejecutar RPA Doc Generator en Windows
+REM Ejecutar desde la raiz del repositorio: backend\run.bat
 
 echo.
 echo ========================================
 echo RPA Doc Generator - Iniciando...
 echo ========================================
 echo.
+
+REM Cambiar al directorio del script (backend/)
+cd /d "%~dp0"
 
 REM Verificar que Python está instalado
 python --version >nul 2>&1
@@ -15,15 +19,15 @@ if errorlevel 1 (
     exit /b 1
 )
 
-REM Crear venv si no existe
-if not exist "venv" (
+REM Crear venv si no existe (en la raiz del repo, un nivel arriba)
+if not exist "..\venv" (
     echo Creando entorno virtual...
-    python -m venv venv
+    python -m venv ..\venv
 )
 
 REM Activar venv
 echo Activando entorno virtual...
-call venv\Scripts\activate.bat
+call ..\venv\Scripts\activate.bat
 
 REM Instalar dependencias si no existen
 echo Verificando dependencias...
@@ -33,16 +37,16 @@ if errorlevel 1 (
     pip install -r requirements.txt
 )
 
-REM Crear directorios necesarios
-if not exist "tmp" mkdir tmp
-if not exist "output" mkdir output
+REM Crear directorios necesarios en la raiz del repo
+if not exist "..\tmp" mkdir ..\tmp
+if not exist "..\output" mkdir ..\output
 
 echo.
 echo Iniciando servidor FastAPI en http://localhost:8000
 echo Presiona Ctrl+C para detener
 echo.
 
-REM Ejecutar la aplicación
+REM Ejecutar la aplicación desde backend/
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 pause

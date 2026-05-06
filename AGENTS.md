@@ -8,12 +8,14 @@ Build and maintain a FastAPI service that generates technical documentation for 
 
 ## Repository map
 
-- Runtime entrypoint: `app/main.py`
-- API layer: `app/api/`
-- Application/use-cases: `app/application/`
-- Domain analysis/parsing logic: `app/analysis/`, `app/parser/`
-- Infrastructure/adapters: `app/ingestion/`, `app/generator/`
-- Tests: `tests/`
+- Runtime entrypoint: `backend/app/main.py`
+- API layer: `backend/app/api/`
+- Application/use-cases: `backend/app/application/`
+- Domain analysis/parsing logic: `backend/app/analysis/`, `backend/app/parser/`
+- Infrastructure/adapters: `backend/app/ingestion/`, `backend/app/generator/`
+- Templates and static assets: `backend/app/templates/`, `backend/app/static/`
+- Tests: `backend/tests/`
+- Dependencies: `backend/requirements.txt`, `backend/requirements-dev.txt`
 - CI: `.github/workflows/ci.yml`
 
 ## Mandatory working rules
@@ -26,10 +28,12 @@ Build and maintain a FastAPI service that generates technical documentation for 
 
 ## Quality gates before closing changes
 
-Run the same validations used in CI:
+Run the same validations used in CI (from `backend/`):
 
 ```bash
+cd backend
 ruff check --select E9,F63,F7,F82 app tests
+bandit -q -r app -ll -s B104
 python -m coverage erase
 python -m coverage run -m pytest tests -q
 python -m coverage report --fail-under=90 -m

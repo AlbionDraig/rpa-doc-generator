@@ -3,7 +3,8 @@ uvicorn
 python-multipart
 pydantic
 python-dotenv
-lxml
+lxml>=6.1.0
+defusedxml
 pyyaml
 python-dateutil
 python-docx

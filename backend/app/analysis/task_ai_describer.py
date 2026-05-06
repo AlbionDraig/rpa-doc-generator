@@ -66,7 +66,7 @@ def describe_task_with_ai(task, settings=None):
             headers=_build_ai_headers(api_key),
             method="POST",
         )
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
             raw = response.read().decode("utf-8")
 
         data = json.loads(raw)
@@ -161,7 +161,7 @@ def build_sdd_ai_insights(project_data, flow=None, settings=None):
             headers=_build_ai_headers(api_key),
             method="POST",
         )
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
             raw = response.read().decode("utf-8")
 
         data = json.loads(raw)
@@ -236,7 +236,7 @@ def build_quality_prioritization(project_data, task_descriptions, observations, 
             headers=_build_ai_headers(api_key),
             method="POST",
         )
-        with request.urlopen(req, timeout=timeout) as response:
+        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
             raw = response.read().decode("utf-8")
 
         data = json.loads(raw)
@@ -264,6 +264,15 @@ def _is_ai_enabled(settings):
     return bool(settings.ai_quality_enabled)
 
 
+def _validate_base_url(url: str, label: str) -> str:
+    """Validate that the provider base URL uses an allowed scheme (https or http)."""
+    if not url.startswith(("https://", "http://")):
+        raise ValueError(
+            f"Invalid {label} base URL scheme. Only 'https://' and 'http://' are allowed."
+        )
+    return url
+
+
 def _resolve_ai_provider_config(settings):
     groq_api_key = settings.groq_api_key
     if groq_api_key:
@@ -271,14 +280,14 @@ def _resolve_ai_provider_config(settings):
             "provider": "groq",
             "api_key": groq_api_key,
             "model": settings.groq_model,
-            "base_url": settings.groq_base_url,
+            "base_url": _validate_base_url(settings.groq_base_url, "GROQ_BASE_URL"),
         }
 
     return {
         "provider": "openai-compatible",
         "api_key": settings.openai_api_key,
         "model": settings.openai_model,
-        "base_url": settings.openai_base_url,
+        "base_url": _validate_base_url(settings.openai_base_url, "OPENAI_BASE_URL"),
     }
 
 

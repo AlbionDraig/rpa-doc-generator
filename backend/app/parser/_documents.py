@@ -1,6 +1,7 @@
 import json
 import os
-import xml.etree.ElementTree as ET
+
+import defusedxml.ElementTree as ET
 
 from app.parser._common import _sanitize_mapping, sanitize_text
 

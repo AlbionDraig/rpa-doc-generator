@@ -60,7 +60,7 @@ class AppSettings:
                 "APP_DESCRIPTION",
                 "Generador automatico de documentacion SDD para bots de Automation Anywhere",
             ),
-            app_host=os.getenv("APP_HOST", "0.0.0.0"),
+            app_host=os.getenv("APP_HOST", "0.0.0.0"),  # B104 skipped: configurable via APP_HOST env var, required for containerized deployments
             app_port=app_port,
             app_log_level=os.getenv("APP_LOG_LEVEL", "info").lower(),
             app_access_log=_env_bool("APP_ACCESS_LOG", "true"),
