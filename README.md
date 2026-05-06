@@ -19,6 +19,7 @@ Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de ca
 - [Personalizacion mediante Templates](#personalizacion-mediante-templates)
 - [Calidad y Cobertura](#calidad-y-cobertura)
 - [CI/CD](#cicd)
+- [Steering para IA (Agents y Hooks)](#steering-para-ia-agents-y-hooks)
 - [API](#api)
 - [CORS](#cors)
 - [Limites](#limites)
@@ -259,6 +260,23 @@ python -m coverage erase
 python -m coverage run -m pytest tests -q
 python -m coverage report --fail-under=90 -m
 ```
+
+## Steering para IA (Agents y Hooks)
+
+El repositorio incluye configuracion versionada para guiar asistentes IA de forma consistente:
+
+- `AGENTS.md`: punto de entrada con contexto operativo del proyecto.
+- `.github/copilot-instructions.md`: principios generales de implementacion.
+- `.github/instructions/*.instructions.md`: reglas por stack y tipo de cambio.
+- `.github/agents/*.agent.md`: modos especializados (`Implementer`, `Reviewer`, `Explore`).
+- `.github/hooks/policy.json` y `.github/hooks/scripts/pre-safety.js`: hook `PreToolUse` para pedir confirmacion ante comandos potencialmente destructivos.
+
+Recomendacion de uso:
+
+1. Para construir o corregir funcionalidad, usar modo `Implementer`.
+2. Para auditoria o revision de riesgos, usar modo `Reviewer`.
+3. Para exploracion rapida sin cambios, usar modo `Explore`.
+4. Mantener estos archivos en git para preservar el comportamiento del asistente entre colaboradores y sesiones.
 
 ---
 

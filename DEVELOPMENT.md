@@ -22,7 +22,8 @@ Para contratos y modelos exactos del codigo:
 10. [Templates](#templates)
 11. [Convenciones de Desarrollo](#convenciones-de-desarrollo)
 12. [Pruebas](#pruebas)
-13. [Licencia](#licencia)
+13. [Steering IA (Agents, Instructions, Hooks)](#steering-ia-agents-instructions-hooks)
+14. [Licencia](#licencia)
 
 ---
 
@@ -292,6 +293,28 @@ python -m coverage report -m
 ```
 
 Para estado de cobertura y badges, revisar README.md.
+
+---
+
+## Steering IA (Agents, Instructions, Hooks)
+
+El repositorio incluye configuracion versionada para estandarizar el comportamiento de asistentes IA y subagentes.
+
+Archivos clave:
+
+- `AGENTS.md`: contexto operativo y reglas base del repositorio.
+- `.github/copilot-instructions.md`: principios de ingenieria globales.
+- `.github/instructions/*.instructions.md`: reglas por dominio (backend, frontend, testing, git, etc.).
+- `.github/agents/*.agent.md`: perfiles de trabajo (`Implementer`, `Reviewer`, `Explore`).
+- `.github/hooks/policy.json`: politica de hooks para herramientas.
+- `.github/hooks/scripts/pre-safety.js`: validacion previa de operaciones peligrosas.
+
+Uso recomendado:
+
+1. `Explore` para mapear codigo sin editar.
+2. `Implementer` para cambios de funcionalidad y pruebas.
+3. `Reviewer` para analisis de riesgos, seguridad y mantenibilidad.
+4. Mantener esta carpeta `.github/` versionada para consistencia entre colaboradores.
 
 ---
 
