@@ -3,7 +3,7 @@
 [![Lint](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml)
 [![Security](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml)
 [![Tests](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml)
-![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
+[![Coverage](https://codecov.io/gh/AlbionDraig/rpa-doc-generator/graph/badge.svg?branch=master)](https://codecov.io/gh/AlbionDraig/rpa-doc-generator)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Generador automatico de documentacion tecnica para bots de Automation Anywhere 360.
