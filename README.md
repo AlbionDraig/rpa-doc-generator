@@ -173,10 +173,10 @@ pip install -r backend/requirements.txt
 
 ```bash
 # Windows
-backend\run.bat
+backend\scripts\run.bat
 
 # Linux/macOS
-chmod +x backend/run.sh && backend/run.sh
+chmod +x backend/scripts/run.sh && backend/scripts/run.sh
 
 # Manual (desde backend/)
 cd backend
@@ -508,8 +508,9 @@ rpa-doc-generator/
 │   ├── requirements-dev.txt
 │   ├── pytest.ini
 │   ├── .env.example
-│   ├── run.bat
-│   └── run.sh
+│   └── scripts/
+│       ├── run.bat
+│       └── run.sh
 ├── output/                # Artefactos generados por sesion
 ├── tmp/                   # ZIPs extraidos temporalmente
 ├── .github/

@@ -1,6 +1,6 @@
 @echo off
 REM Script para ejecutar RPA Doc Generator en Windows
-REM Ejecutar desde la raiz del repositorio: backend\run.bat
+REM Ejecutar desde cualquier lugar: backend\scripts\run.bat
 
 echo.
 echo ========================================
@@ -8,8 +8,8 @@ echo RPA Doc Generator - Iniciando...
 echo ========================================
 echo.
 
-REM Cambiar al directorio del script (backend/)
-cd /d "%~dp0"
+REM Cambiar al directorio backend/ (un nivel arriba del script)
+cd /d "%~dp0.."
 
 REM Verificar que Python está instalado
 python --version >nul 2>&1

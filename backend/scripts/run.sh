@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script para ejecutar RPA Doc Generator en Linux/Mac
-# Ejecutar desde la raiz del repositorio: bash backend/run.sh
+# Ejecutar desde cualquier lugar: bash backend/scripts/run.sh
 
 echo ""
 echo "========================================"
@@ -8,16 +8,16 @@ echo "RPA Doc Generator - Iniciando..."
 echo "========================================"
 echo ""
 
-# Cambiar al directorio del script (backend/)
-cd "$(dirname "$0")"
+# Cambiar al directorio backend/ (un nivel arriba del script)
+cd "$(dirname "$0")/.." || exit 1
 
-# Verificar que Python está instalado
+# Verificar que Python esta instalado
 if ! command -v python3 &> /dev/null; then
-    echo "Error: Python 3 no está instalado"
+    echo "Error: Python 3 no esta instalado"
     exit 1
 fi
 
-# Crear venv en la raiz del repo (un nivel arriba)
+# Crear venv en la raiz del repo (un nivel arriba de backend/)
 if [ ! -d "../venv" ]; then
     echo "Creando entorno virtual..."
     python3 -m venv ../venv
@@ -44,5 +44,5 @@ echo "Iniciando servidor FastAPI en http://localhost:8000"
 echo "Presiona Ctrl+C para detener"
 echo ""
 
-# Ejecutar la aplicación desde backend/
+# Ejecutar la aplicacion desde backend/
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
