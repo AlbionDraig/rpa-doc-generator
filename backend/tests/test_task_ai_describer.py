@@ -1,3 +1,4 @@
+# Stable imports keep diffs readable.
 import json
 import os
 import unittest
@@ -82,7 +83,7 @@ class TaskAIDescriberTests(unittest.TestCase):
             ]
         }
 
-        with patch("app.analysis.task_ai_describer.request.urlopen") as mock_urlopen:
+        with patch("app.analysis.ai_providers.openai_compatible_service.request.urlopen") as mock_urlopen:
             mock_urlopen.return_value = _FakeResponse(json.dumps(response_payload).encode("utf-8"))
             result = task_ai_describer.describe_task_with_ai(self.task)
 
@@ -243,6 +244,34 @@ class TaskAIDescriberTests(unittest.TestCase):
             }
         )
         self.assertEqual(task_ai_describer.classify_task_for_aa360(utility_task), "utilitario")
+
+    @patch.dict(
+        os.environ,
+        {
+            "AI_QUALITY_ENABLED": "true",
+            "BEDROCK_MODEL_ID": "anthropic.claude-3-5-haiku-20241022-v1:0",
+            "BEDROCK_REGION": "us-east-1",
+        },
+        clear=True,
+    )
+    def test_describe_task_with_ai_reads_bedrock_response(self):
+        parsed_payload = {
+            "task_profile": "principal",
+            "what_it_does": "Ejecuta validacion de clientes.",
+            "business_function": "Reduce riesgo operativo.",
+            "criticality": "alta",
+            "risks": ["Dependencia externa"],
+            "recommendations": ["Agregar reintentos"],
+            "confidence": "alta",
+        }
+
+        with patch("app.analysis.ai_providers.provider_router.invoke_bedrock", return_value=json.dumps(parsed_payload)):
+            result = task_ai_describer.describe_task_with_ai(self.task)
+
+        self.assertEqual(result["source"], "ai")
+        self.assertEqual(result["confidence"], "alta")
+        self.assertEqual(result["criticality"], "alta")
+        self.assertEqual(result["task_profile"], "principal")
 
 
 if __name__ == "__main__":

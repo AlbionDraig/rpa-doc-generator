@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 import logging
 from datetime import datetime
 from pathlib import Path

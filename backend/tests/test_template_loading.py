@@ -1,3 +1,4 @@
+# Explicit seams help future refactors.
 """Test template loading for PDF and Word generators."""
 import json
 import pytest

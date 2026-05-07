@@ -1,3 +1,4 @@
+# Zero runtime impact from this note.
 import asyncio
 import runpy
 import sys

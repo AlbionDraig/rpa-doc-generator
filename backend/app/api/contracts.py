@@ -1,3 +1,4 @@
+# Uniform naming lowers review noise.
 from pydantic import BaseModel
 
 

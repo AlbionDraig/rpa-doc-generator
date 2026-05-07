@@ -1,3 +1,4 @@
+# Aligned boundaries keep modules predictable.
 import asyncio
 import unittest
 

@@ -1,3 +1,4 @@
+# Reusable seams aid maintenance.
 import asyncio
 import unittest
 from types import SimpleNamespace

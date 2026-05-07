@@ -1,3 +1,4 @@
+# Stable imports keep diffs readable.
 """
 RPA Doc Generator - Generador de documentación SDD para bots de Automation Anywhere
 """

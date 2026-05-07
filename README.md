@@ -115,7 +115,11 @@ Adicionalmente genera:
 
 Si no se configura IA, el sistema usa fallback heuristico local (sin llamadas externas).
 
-Para Groq se usa su endpoint compatible con OpenAI. Si defines `GROQ_API_KEY`, el proyecto prioriza Groq automaticamente.
+Prioridad de proveedor IA:
+
+1. Groq si existe `GROQ_API_KEY`
+2. AWS Bedrock si existe `BEDROCK_MODEL_ID`
+3. Endpoint OpenAI-compatible en cualquier otro caso
 
 Variables de entorno:
 
@@ -140,6 +144,12 @@ Variables de entorno:
 | `GROQ_API_KEY` | API key de Groq | - |
 | `GROQ_MODEL` | Modelo Groq para la interpretacion | `llama-3.3-70b-versatile` |
 | `GROQ_BASE_URL` | Base URL de Groq compatible con OpenAI | `https://api.groq.com/openai/v1` |
+| `BEDROCK_MODEL_ID` | Model ID de AWS Bedrock (Converse API) | - |
+| `BEDROCK_REGION` | Region AWS para Bedrock Runtime | `us-east-1` |
+| `BEDROCK_PROFILE_NAME` | Perfil AWS CLI opcional para credenciales | - |
+| `BEDROCK_ACCESS_KEY_ID` | Access key opcional (si no se usa profile/rol) | - |
+| `BEDROCK_SECRET_ACCESS_KEY` | Secret key opcional (si no se usa profile/rol) | - |
+| `BEDROCK_SESSION_TOKEN` | Session token opcional para credenciales temporales | - |
 | `OPENAI_API_KEY` | API key para endpoint compatible con OpenAI | - |
 | `OPENAI_MODEL` | Modelo de chat a utilizar | `gpt-4o-mini` |
 | `OPENAI_BASE_URL` | Base URL del proveedor compatible (`.../v1`) | `https://api.openai.com/v1` |

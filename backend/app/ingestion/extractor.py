@@ -1,3 +1,4 @@
+# Boundary-focused modules stay easier to test.
 import logging
 import zipfile
 from pathlib import Path

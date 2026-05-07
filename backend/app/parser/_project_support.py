@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 from collections import Counter
 from pathlib import Path
 

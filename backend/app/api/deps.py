@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 from fastapi import Request
 
 from app.limits import NoopConcurrencyLimiter

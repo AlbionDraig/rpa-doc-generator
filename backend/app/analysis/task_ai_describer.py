@@ -1,10 +1,16 @@
+# Aligned boundaries keep modules predictable.
 import json
 import logging
 import re
 from pathlib import Path
-from urllib import request, error
+from urllib import error
 
 from app.application.settings import AppSettings
+from app.analysis.ai_providers import (
+    has_provider_credentials,
+    invoke_ai,
+    resolve_ai_provider_config,
+)
 
 _PROMPTS_DIR = Path(__file__).parent.parent / "templates" / "prompts"
 
@@ -36,15 +42,6 @@ def _load_prompt(name: str) -> dict:
 logger = logging.getLogger(__name__)
 
 
-def _build_ai_headers(api_key):
-    return {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}",
-        "Accept": "application/json",
-        "User-Agent": "rpa-doc-generator/1.0 (+https://localhost)",
-    }
-
-
 def describe_task_with_ai(task, settings=None):
     """
     Describe functional intent and quality-oriented insights for one taskbot.
@@ -58,45 +55,23 @@ def describe_task_with_ai(task, settings=None):
     if not _is_ai_enabled(runtime_settings):
         return _heuristic_description(task)
 
-    provider_config = _resolve_ai_provider_config(runtime_settings)
-    api_key = provider_config["api_key"]
-    if not api_key:
+    provider_config = resolve_ai_provider_config(runtime_settings)
+    if not has_provider_credentials(provider_config):
         logger.info("AI quality enabled but provider API key is missing. Using heuristic fallback.")
         return _heuristic_description(task)
 
-    model = provider_config["model"]
-    base_url = provider_config["base_url"]
     timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
     _prompt = _load_prompt("taskbot_description")
     prompt = _build_prompt(task, _prompt["user"])
-    payload = {
-        "model": model,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content": _prompt["system"]},
-            {"role": "user", "content": prompt},
-        ],
-    }
-
-    endpoint = f"{base_url}/chat/completions"
 
     try:
-        req = request.Request(
-            endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers=_build_ai_headers(api_key),
-            method="POST",
-        )
-        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
-            raw = response.read().decode("utf-8")
-
-        data = json.loads(raw)
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
+        content = invoke_ai(
+            provider_config,
+            _prompt["system"],
+            prompt,
+            temperature=0.2,
+            timeout=timeout,
         )
         parsed = _extract_model_json(content)
         if not parsed:
@@ -150,43 +125,21 @@ def build_sdd_ai_insights(project_data, flow=None, settings=None):
     if not _is_ai_enabled(runtime_settings):
         return _heuristic_sdd_insights(project_data, flow)
 
-    provider_config = _resolve_ai_provider_config(runtime_settings)
-    api_key = provider_config["api_key"]
-    if not api_key:
+    provider_config = resolve_ai_provider_config(runtime_settings)
+    if not has_provider_credentials(provider_config):
         return _heuristic_sdd_insights(project_data, flow)
 
-    model = provider_config["model"]
-    base_url = provider_config["base_url"]
     timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
     _prompt = _load_prompt("sdd_insights")
     prompt = _build_sdd_prompt(project_data, flow, _prompt["user"])
-    payload = {
-        "model": model,
-        "temperature": 0.2,
-        "messages": [
-            {"role": "system", "content": _prompt["system"]},
-            {"role": "user", "content": prompt},
-        ],
-    }
-
-    endpoint = f"{base_url}/chat/completions"
     try:
-        req = request.Request(
-            endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers=_build_ai_headers(api_key),
-            method="POST",
-        )
-        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
-            raw = response.read().decode("utf-8")
-
-        data = json.loads(raw)
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
+        content = invoke_ai(
+            provider_config,
+            _prompt["system"],
+            prompt,
+            temperature=0.2,
+            timeout=timeout,
         )
         parsed = _extract_model_json(content)
         if not parsed:
@@ -220,43 +173,21 @@ def build_quality_prioritization(project_data, task_descriptions, observations, 
     if not _is_ai_enabled(runtime_settings):
         return _heuristic_prioritization(task_descriptions, observations)
 
-    provider_config = _resolve_ai_provider_config(runtime_settings)
-    api_key = provider_config["api_key"]
-    if not api_key:
+    provider_config = resolve_ai_provider_config(runtime_settings)
+    if not has_provider_credentials(provider_config):
         return _heuristic_prioritization(task_descriptions, observations)
 
-    model = provider_config["model"]
-    base_url = provider_config["base_url"]
     timeout = _safe_timeout(runtime_settings.ai_timeout_seconds)
 
     _prompt = _load_prompt("quality_prioritization")
     prompt = _build_prioritization_prompt(project_data, task_descriptions, observations, _prompt["user"])
-    payload = {
-        "model": model,
-        "temperature": 0.1,
-        "messages": [
-            {"role": "system", "content": _prompt["system"]},
-            {"role": "user", "content": prompt},
-        ],
-    }
-
-    endpoint = f"{base_url}/chat/completions"
     try:
-        req = request.Request(
-            endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers=_build_ai_headers(api_key),
-            method="POST",
-        )
-        with request.urlopen(req, timeout=timeout) as response:  # nosec B310 — scheme validated by _validate_base_url (https/http only)
-            raw = response.read().decode("utf-8")
-
-        data = json.loads(raw)
-        content = (
-            data.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip()
+        content = invoke_ai(
+            provider_config,
+            _prompt["system"],
+            prompt,
+            temperature=0.1,
+            timeout=timeout,
         )
         parsed = _extract_model_json(content)
         if not parsed:
@@ -274,33 +205,6 @@ def build_quality_prioritization(project_data, task_descriptions, observations, 
 
 def _is_ai_enabled(settings):
     return bool(settings.ai_quality_enabled)
-
-
-def _validate_base_url(url: str, label: str) -> str:
-    """Validate that the provider base URL uses an allowed scheme (https or http)."""
-    if not url.startswith(("https://", "http://")):
-        raise ValueError(
-            f"Invalid {label} base URL scheme. Only 'https://' and 'http://' are allowed."
-        )
-    return url
-
-
-def _resolve_ai_provider_config(settings):
-    groq_api_key = settings.groq_api_key
-    if groq_api_key:
-        return {
-            "provider": "groq",
-            "api_key": groq_api_key,
-            "model": settings.groq_model,
-            "base_url": _validate_base_url(settings.groq_base_url, "GROQ_BASE_URL"),
-        }
-
-    return {
-        "provider": "openai-compatible",
-        "api_key": settings.openai_api_key,
-        "model": settings.openai_model,
-        "base_url": _validate_base_url(settings.openai_base_url, "OPENAI_BASE_URL"),
-    }
 
 
 def _safe_timeout(value):

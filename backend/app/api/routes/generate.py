@@ -1,3 +1,4 @@
+# Reusable seams aid maintenance.
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 
 from app.api.contracts import ApiErrorResponse, ArtifactGenerationResponse

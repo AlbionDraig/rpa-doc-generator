@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 import logging
 
 from dotenv import load_dotenv

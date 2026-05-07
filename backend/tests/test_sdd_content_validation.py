@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 """Test to validate SDD Word has all Markdown sections."""
 from pathlib import Path
 from app.generator.sdd_generator import generate_sdd

@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 import json
 import os
 import unittest
@@ -166,7 +167,7 @@ class FlowAndAIEdgeCoverageTests(unittest.TestCase):
             {"AI_QUALITY_ENABLED": "true", "OPENAI_API_KEY": "k", "OPENAI_BASE_URL": "https://x/v1"},
             clear=True,
         ), patch(
-            "app.analysis.task_ai_describer.request.urlopen",
+            "app.analysis.ai_providers.openai_compatible_service.request.urlopen",
             side_effect=error.URLError("down"),
         ):
             result = task_ai_describer.describe_task_with_ai(task)
@@ -178,7 +179,7 @@ class FlowAndAIEdgeCoverageTests(unittest.TestCase):
             {"AI_QUALITY_ENABLED": "true", "OPENAI_API_KEY": "k", "OPENAI_BASE_URL": "https://x/v1"},
             clear=True,
         ), patch(
-            "app.analysis.task_ai_describer.request.urlopen",
+            "app.analysis.ai_providers.openai_compatible_service.request.urlopen",
             return_value=_FakeResponse(json.dumps(bad_payload).encode("utf-8")),
         ):
             result = task_ai_describer.describe_task_with_ai(task)
@@ -249,7 +250,7 @@ class FlowAndAIEdgeCoverageTests(unittest.TestCase):
             os.environ,
             {"AI_QUALITY_ENABLED": "true", "OPENAI_API_KEY": "k", "OPENAI_BASE_URL": "https://x/v1"},
             clear=True,
-        ), patch("app.analysis.task_ai_describer.request.urlopen", return_value=_FakeResponse(json.dumps(sdd_payload).encode("utf-8"))):
+        ), patch("app.analysis.ai_providers.openai_compatible_service.request.urlopen", return_value=_FakeResponse(json.dumps(sdd_payload).encode("utf-8"))):
             sdd = task_ai_describer.build_sdd_ai_insights(project_data, {"summary": {"total_edges": 1}})
             self.assertEqual(sdd["source"], "ai")
             self.assertEqual(sdd["confidence"], "alta")
@@ -258,7 +259,7 @@ class FlowAndAIEdgeCoverageTests(unittest.TestCase):
             os.environ,
             {"AI_QUALITY_ENABLED": "true", "OPENAI_API_KEY": "k", "OPENAI_BASE_URL": "https://x/v1"},
             clear=True,
-        ), patch("app.analysis.task_ai_describer.request.urlopen", return_value=_FakeResponse(json.dumps(pri_payload).encode("utf-8"))):
+        ), patch("app.analysis.ai_providers.openai_compatible_service.request.urlopen", return_value=_FakeResponse(json.dumps(pri_payload).encode("utf-8"))):
             pri = task_ai_describer.build_quality_prioritization(
                 project_data,
                 {"Main": {"task_profile": "principal", "criticality": "alta", "risks": ["r"], "recommendations": ["m"]}},

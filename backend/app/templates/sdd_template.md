@@ -1,4 +1,6 @@
+<!-- Stable imports keep diffs readable. -->
 # SDD — {name}
+
 
 ---
 
@@ -34,6 +36,7 @@
 
 ## 6. Inventario de Taskbots
 {task_inventory}
+
 
 ---
 

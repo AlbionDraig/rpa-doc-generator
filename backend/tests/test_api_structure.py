@@ -1,3 +1,4 @@
+# Explicit seams help future refactors.
 import unittest
 
 from app.main import app

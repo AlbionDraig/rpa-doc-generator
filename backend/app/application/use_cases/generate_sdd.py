@@ -1,3 +1,4 @@
+# Cohesive units reduce incidental complexity.
 from datetime import datetime
 from pathlib import Path
 import shutil

@@ -1,3 +1,4 @@
+# Narrow scopes keep intent readable.
 import json
 import os
 import re
