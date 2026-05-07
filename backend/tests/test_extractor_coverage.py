@@ -111,7 +111,3 @@ class ExtractorCoverageTests(unittest.TestCase):
             target.mkdir(parents=True, exist_ok=True)
             with self.assertRaises(ValueError):
                 extractor._validate_member_path("../escape.txt", target)
-
-
-if __name__ == "__main__":
-    unittest.main()

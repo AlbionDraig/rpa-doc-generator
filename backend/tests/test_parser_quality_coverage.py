@@ -383,7 +383,3 @@ class ParserAndQualityCoverageTests(unittest.TestCase):
             saved_quality = sdd_generator.generate_quality_file(project_data, str(quality_out))
             self.assertTrue(Path(saved_sdd).exists())
             self.assertTrue(Path(saved_quality).exists())
-
-
-if __name__ == "__main__":
-    unittest.main()
