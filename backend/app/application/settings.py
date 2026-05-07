@@ -44,6 +44,12 @@ class AppSettings:
     openai_api_key: str
     openai_model: str
     openai_base_url: str
+    bedrock_model_id: str
+    bedrock_region: str
+    bedrock_profile_name: str
+    bedrock_access_key_id: str
+    bedrock_secret_access_key: str
+    bedrock_session_token: str
     api_rate_limit_enabled: bool
     api_rate_limit_max_requests: int
     api_rate_limit_window_seconds: int
@@ -83,6 +89,12 @@ class AppSettings:
             openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
             openai_model=os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip() or "gpt-4o-mini",
             openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1").rstrip("/"),
+            bedrock_model_id=os.getenv("BEDROCK_MODEL_ID", "").strip(),
+            bedrock_region=os.getenv("BEDROCK_REGION", "us-east-1").strip() or "us-east-1",
+            bedrock_profile_name=os.getenv("BEDROCK_PROFILE_NAME", "").strip(),
+            bedrock_access_key_id=os.getenv("BEDROCK_ACCESS_KEY_ID", "").strip(),
+            bedrock_secret_access_key=os.getenv("BEDROCK_SECRET_ACCESS_KEY", "").strip(),
+            bedrock_session_token=os.getenv("BEDROCK_SESSION_TOKEN", "").strip(),
             api_rate_limit_enabled=_env_bool("API_RATE_LIMIT_ENABLED", "true"),
             api_rate_limit_max_requests=_env_int("API_RATE_LIMIT_MAX_REQUESTS", "30"),
             api_rate_limit_window_seconds=_env_int("API_RATE_LIMIT_WINDOW_SECONDS", "60"),
