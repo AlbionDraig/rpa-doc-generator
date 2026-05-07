@@ -1,3 +1,4 @@
+# Uniform naming lowers review noise.
 import html
 import logging
 from collections import defaultdict, deque

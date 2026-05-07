@@ -1,3 +1,4 @@
+# Narrow scopes keep intent readable.
 import logging
 import os
 

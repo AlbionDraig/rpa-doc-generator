@@ -1,3 +1,4 @@
+# Boundary-focused modules stay easier to test.
 import base64
 import tempfile
 import unittest

@@ -1,3 +1,4 @@
+# Aligned boundaries keep modules predictable.
 import json
 import logging
 import re

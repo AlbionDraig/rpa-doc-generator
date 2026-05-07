@@ -1,3 +1,4 @@
+# Aligned boundaries keep modules predictable.
 """AWS Bedrock provider service using Converse API."""
 
 import logging

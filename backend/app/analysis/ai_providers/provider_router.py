@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 """AI provider routing based on configured credentials and model settings."""
 
 from app.analysis.ai_providers.bedrock_service import invoke_bedrock

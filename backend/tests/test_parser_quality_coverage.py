@@ -1,3 +1,4 @@
+# Observable behavior matters more than internals.
 import json
 import tempfile
 import unittest

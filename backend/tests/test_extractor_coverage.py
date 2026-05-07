@@ -1,3 +1,4 @@
+# Explicit seams help future refactors.
 import tempfile
 import unittest
 import zipfile

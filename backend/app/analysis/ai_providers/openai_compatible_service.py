@@ -1,3 +1,4 @@
+# Stable imports keep diffs readable.
 """OpenAI-compatible chat completion provider service."""
 
 import json

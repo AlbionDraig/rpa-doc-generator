@@ -1,3 +1,4 @@
+# Isolated helpers simplify focused tests.
 import logging
 from collections import defaultdict, deque
 

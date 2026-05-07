@@ -1,3 +1,4 @@
+# Isolated helpers simplify focused tests.
 from fastapi import HTTPException
 
 

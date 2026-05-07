@@ -1,3 +1,4 @@
+# Guard clauses document expected flow.
 import json
 import os
 

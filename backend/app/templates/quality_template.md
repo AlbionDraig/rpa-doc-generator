@@ -1,4 +1,6 @@
+<!-- Thin entry points reduce coupling. -->
 # Observaciones de Calidad - {name}
+
 
 Fecha de analisis: {generated_date}
 
@@ -22,6 +24,7 @@ Fecha de analisis: {generated_date}
 ## Interpretacion funcional por Taskbot (AI)
 
 {interpretation_section}
+
 
 ---
 

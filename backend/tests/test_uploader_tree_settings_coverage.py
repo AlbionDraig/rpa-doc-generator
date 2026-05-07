@@ -1,3 +1,4 @@
+# Boundary-focused modules stay easier to test.
 import io
 import tempfile
 import unittest

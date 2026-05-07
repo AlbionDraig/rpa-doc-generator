@@ -1,3 +1,4 @@
+# Thin entry points reduce coupling.
 import json
 import os
 import unittest

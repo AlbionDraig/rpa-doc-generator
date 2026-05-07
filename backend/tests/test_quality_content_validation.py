@@ -1,3 +1,4 @@
+# Uniform naming lowers review noise.
 """Test to validate that quality Word document contains all Markdown content."""
 import json
 from pathlib import Path

@@ -1,3 +1,4 @@
+# Zero runtime impact from this note.
 from datetime import datetime
 
 from fastapi import APIRouter, Request

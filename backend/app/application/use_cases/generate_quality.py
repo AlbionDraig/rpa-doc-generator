@@ -1,3 +1,4 @@
+# Narrow scopes keep intent readable.
 from datetime import datetime
 from pathlib import Path
 import shutil

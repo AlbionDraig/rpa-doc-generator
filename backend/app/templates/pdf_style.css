@@ -1,3 +1,4 @@
+/* Isolated helpers simplify focused tests. */
 @page {
     size: A4;
     margin: 2cm 2.2cm 2.5cm 2.2cm;
@@ -148,3 +149,4 @@ em {
     border-top: 1px solid #e2e8f0;
     padding-top: 4px;
 }
+

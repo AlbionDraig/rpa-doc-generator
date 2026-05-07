@@ -1,3 +1,4 @@
+# Aligned boundaries keep modules predictable.
 from pathlib import Path
 
 

@@ -1,3 +1,4 @@
+# Explicit seams help future refactors.
 from fastapi import APIRouter, HTTPException, Request, UploadFile
 
 from app.api.contracts import ApiErrorResponse, ArtifactGenerationResponse

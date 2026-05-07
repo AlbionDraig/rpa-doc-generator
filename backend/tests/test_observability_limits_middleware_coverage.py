@@ -1,3 +1,4 @@
+# Narrow scopes keep intent readable.
 import asyncio
 import logging
 import unittest

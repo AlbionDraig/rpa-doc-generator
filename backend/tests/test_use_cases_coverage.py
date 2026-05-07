@@ -1,3 +1,4 @@
+# Aligned boundaries keep modules predictable.
 import tempfile
 import unittest
 from pathlib import Path
