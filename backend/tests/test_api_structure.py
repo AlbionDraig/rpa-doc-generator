@@ -6,12 +6,10 @@ from app.main import app
 
 class ApiStructureTests(unittest.TestCase):
     def _route_exists(self, path, method):
-        target_method = method.upper()
-        for route in app.routes:
-            methods = getattr(route, "methods", set())
-            if route.path == path and target_method in methods:
-                return True
-        return False
+        # Use the public OpenAPI schema: since FastAPI 0.16x included routers are
+        # no longer flattened into app.routes, so walking routes is version-fragile.
+        operations = app.openapi().get("paths", {}).get(path, {})
+        return method.lower() in operations
 
     def test_system_endpoints_are_available(self):
         self.assertTrue(self._route_exists("/", "GET"))
