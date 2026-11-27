@@ -1,14 +1,14 @@
 # RPA Doc Generator
 
-[![Lint](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml)
-[![Security](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml)
-[![Tests](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml/badge.svg?branch=master)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml)
-[![Coverage](https://codecov.io/gh/AlbionDraig/rpa-doc-generator/graph/badge.svg?branch=master)](https://codecov.io/gh/AlbionDraig/rpa-doc-generator)
+[![Lint](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml/badge.svg?branch=develop)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/lint.yml)
+[![Security](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml/badge.svg?branch=develop)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/security.yml)
+[![Tests](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml/badge.svg?branch=develop)](https://github.com/AlbionDraig/rpa-doc-generator/actions/workflows/tests.yml)
+[![Coverage](https://codecov.io/gh/AlbionDraig/rpa-doc-generator/graph/badge.svg?branch=develop)](https://codecov.io/gh/AlbionDraig/rpa-doc-generator)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Generador automatico de documentacion tecnica para bots de Automation Anywhere 360.
+Generador automatico de documentacion tecnica y analisis de calidad para bots RPA, con analisis opcional por IA.
 
-Recibe un ZIP exportado desde AA360 y produce documentacion SDD y reportes de calidad en Markdown, Word y PDF, mas un diagrama SVG del flujo entre taskbots.
+Recibe el ZIP exportado de un proyecto RPA (formato de exportacion AA360) y produce documentacion SDD y reportes de calidad en Markdown, Word y PDF, mas un diagrama SVG del flujo entre taskbots.
 
 ## Tabla de contenido
 
